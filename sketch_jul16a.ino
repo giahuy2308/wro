@@ -179,8 +179,8 @@ double getGyroZ() {
 
 // Dò line
 void lineFollow(int target = 0) {
-  
-}
+
+}  
 
 // Debug
 void print(int x, int y, auto content) {
