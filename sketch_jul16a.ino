@@ -183,22 +183,27 @@ double getGyroZ() {
 
 
 // Dò line
+int greyscaleSetpoint = 960;
+
 void lineDetector(int lineAngle = 0) {
   int greyscale;
+
   double headingError = lineAngle - getIMUAngle();
+
   while (true) {
     greyscale = greyscaleSensor.getAIL();
-    moveForward();
+    move();
     if (greyscale > greyscaleSetpoint) {
       break;
     }
   }
+
   drivetrain.brake(false);
   // Serial.print(lineAngle);
   // Serial.print(" ");
   // Serial.println(headingError);
 
-  moveForward(Dis{ 10 / cos((90 - headingError) * PI / 180) });
+  move(Dis{1 / cos((90 - headingError) * PI / 180)});
   turn(headingError);
 
   return;
@@ -211,19 +216,19 @@ void color_detector(int t = 0) {
       drivetrain.brake(false);
       break;
     } else {
-      moveForward(50, 50);
+      move(50, 50);
     }
   }
 
 
   color[1 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
   while (getAngle() < 20) {
-    moveForward(30, -30);
+    move(30, -30);
   }
   drivetrain.brake(true);
   color[0 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
   while (getAngle() > -20) {
-    moveForward(-30, 30);
+    move(-30, 30);
   }
   drivetrain.brake(true);
   color[2 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
@@ -265,19 +270,19 @@ void phase0() {
 
   turn(-90 - getIMUAngle());
 
-  move(Dis{ 6 }, 0, -basePower * 0.5, false);
+  move(Dis{6}, 0, -basePower * 0.5, false);
 
   toggleFrame();
 
-  move(Dis{ 6 }, 0, -basePower * 0.5, false);
+  move(Dis{6}, 0, -basePower * 0.5, false);
 
   toggleFrame(false, true);
 
   turn(85 - getIMUAngle());
 
-  move(Dis{ 40 }, 0, -basePower, false);
+  move(Dis{4}, 0, -basePower, false);
 
-  move(Dis{ 5 });
+  move(Dis{15});
 
   double lastAngle = getAngle();
 
@@ -291,7 +296,7 @@ void phase0() {
 
   int distance = 25 / cos(radian) - getLaserDis() / 10 * tan(radian);
 
-  move(Dis{ distance });
+  move(Dis{distance});
 
   phase++;
 }
