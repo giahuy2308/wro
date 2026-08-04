@@ -13,7 +13,7 @@ bool reset = false;
 
 // Cảm biến
 MiniR4Analog<(18U), (19U)> greyscaleSensor;
-MatrixLaserV2& laserSensor = MiniR4.I2C3.MXLaserV2; 
+MatrixLaserV2& laserSensor = MiniR4.I2C3.MXLaserV2;
 
 // Debug
 Adafruit_SSD1306& screen = MiniR4.OLED;
@@ -33,25 +33,30 @@ MiniR4Digital<13, 10> frameSwitch;
 // Vị trí
 MiniR4Motion pos;
 
-int dir = 1; // -1: trái, 1: phải  
+int dir = 1;  // -1: trái, 1: phải
 
 // Di chuyển
 int basePower = 60;
+
+// Color
+int color[6];
 
 // ------------------------------------------------
 
 // ---------------------Class----------------------
 
 struct Dis {
-    double value;
+  double value;
 
-    explicit Dis(double value) : value(value - 2) {}
+  explicit Dis(double value)
+    : value(value - 2) {}
 };
 
 struct Ms {
-    int value;
+  int value;
 
-    explicit Ms(int value) : value(value) {}
+  explicit Ms(int value)
+    : value(value) {}
 };
 
 
@@ -68,21 +73,20 @@ double toRadian(double angle) {
 bool isOpen = false;
 void toggleFrame(bool reset = false, bool again = false) {
   if (again || (!isOpen && !reset)) {
-      motor_1.setPower(-35);
+    motor_1.setPower(-35);
 
-      delay(again ? 200 : 550);
+    delay(again ? 200 : 550);
 
-      motor_1.setBrake(true);
+    motor_1.setBrake(true);
 
-      isOpen = true;
-  } 
-  else {
-      while (frameSwitch.getL() == 0)
-          motor_1.setPower(35);
+    isOpen = true;
+  } else {
+    while (frameSwitch.getL() == 0)
+      motor_1.setPower(35);
 
-      motor_1.setBrake(true);
+    motor_1.setBrake(true);
 
-      isOpen = false;
+    isOpen = false;
   }
 }
 
@@ -112,7 +116,7 @@ void turn(int target, int mode = 1, int power = basePower, bool brake = true) {
   prevAngle = pos.getEuler(MiniR4Motion::AxisType::Yaw);
 
   drivetrain.TurnGyro(power, target, mode, brake);
-      
+
   delay(50);
 }
 
@@ -127,7 +131,7 @@ void moveArc(double r, int angle, int powerR = basePower) {
     int gyro = getGyroZ();
 
     if (abs(angleError) < 2) {
-      drivetrain.brake(true);  
+      drivetrain.brake(true);
 
       break;
     }
@@ -177,10 +181,54 @@ double getGyroZ() {
   return pos.getGyro(MiniR4Motion::AxisType::Z);
 }
 
-// Dò line
-void lineFollow(int target = 0) {
 
-}  
+// Dò line
+void lineDetector(int lineAngle = 0) {
+  int greyscale;
+  double headingError = lineAngle - getIMUAngle();
+  while (true) {
+    greyscale = greyscaleSensor.getAIL();
+    moveForward();
+    if (greyscale > greyscaleSetpoint) {
+      break;
+    }
+  }
+  drivetrain.brake(false);
+  // Serial.print(lineAngle);
+  // Serial.print(" ");
+  // Serial.println(headingError);
+
+  moveForward(Dis{ 10 / cos((90 - headingError) * PI / 180) });
+  turn(headingError);
+
+  return;
+}
+
+// Color
+void color_detector(int t = 0) {
+  while (true) {
+    if (MiniR4.I2C4.MXColorV3.getRaw_R() < 93 && MiniR4.I2C4.MXColorV3.getRaw_G() < 93 && MiniR4.I2C4.MXColorV3.getRaw_B() < 93) {
+      drivetrain.brake(false);
+      break;
+    } else {
+      moveForward(50, 50);
+    }
+  }
+
+
+  color[1 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
+  while (getAngle() < 20) {
+    moveForward(30, -30);
+  }
+  drivetrain.brake(true);
+  color[0 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
+  while (getAngle() > -20) {
+    moveForward(-30, 30);
+  }
+  drivetrain.brake(true);
+  color[2 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
+  return;
+}
 
 // Debug
 void print(int x, int y, auto content) {
@@ -199,12 +247,12 @@ void phase0() {
 
   int angle = getAngle() - 90;
 
-  while (getLaserDis() > 160) 
+  while (getLaserDis() > 160)
     move(angle);
-  
+
   while (getLaserDis() < 160)
     move();
- 
+
   while (getLaserDis() > 160)
     move();
 
@@ -217,19 +265,19 @@ void phase0() {
 
   turn(-90 - getIMUAngle());
 
-  move(Dis{6}, 0, -basePower * 0.5, false);
+  move(Dis{ 6 }, 0, -basePower * 0.5, false);
 
   toggleFrame();
 
-  move(Dis{6}, 0, -basePower * 0.5, false);
+  move(Dis{ 6 }, 0, -basePower * 0.5, false);
 
   toggleFrame(false, true);
 
   turn(85 - getIMUAngle());
 
-  move(Dis{40}, 0, -basePower, false);
+  move(Dis{ 40 }, 0, -basePower, false);
 
-  move(Dis{5});
+  move(Dis{ 5 });
 
   double lastAngle = getAngle();
 
@@ -238,18 +286,17 @@ void phase0() {
   turn(-10);
 
   delay(200);
-  
+
   double radian = toRadian(lastAngle + getAngle());
 
   int distance = 25 / cos(radian) - getLaserDis() / 10 * tan(radian);
 
-  move(Dis{distance});
+  move(Dis{ distance });
 
   phase++;
 }
 
-void phase1 () {
-
+void phase1() {
 }
 
 void setup() {
@@ -317,7 +364,7 @@ void loop() {
   if (begin == true) {
     // Debug
     screen.clearDisplay();
- 
+
     print(0, 0, getAngle());
     print(40, 0, greyscaleSensor.getAIL());
     print(0, 10, getLaserDis());
