@@ -38,6 +38,9 @@ int dir = 1; // -1: trái, 1: phải
 // Di chuyển
 int basePower = 60;
 
+// Color
+int color[6];
+
 // ------------------------------------------------
 
 // ---------------------Class----------------------
@@ -196,6 +199,32 @@ void lineDetector(int lineAngle = 0) {
   moveForward(Dis{ 10 / cos((90 - headingError) * PI / 180) });
   turn(headingError);
 
+  return;
+}
+
+// Color
+void color_detector(int t = 0) {
+  while (true) {
+    if (MiniR4.I2C4.MXColorV3.getRaw_R() < 93 && MiniR4.I2C4.MXColorV3.getRaw_G() < 93 && MiniR4.I2C4.MXColorV3.getRaw_B() < 93) {
+      drivetrain.brake(false);
+      break;
+    } else {
+      moveForward(50, 50);
+    }
+  }
+
+
+  color[1 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
+  while (getAngle() < 20) {
+    moveForward(30, -30);
+  }
+  drivetrain.brake(true);
+  color[0 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
+  while (getAngle() > -20) {
+    moveForward(-30, 30);
+  }
+  drivetrain.brake(true);
+  color[2 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
   return;
 }
 
