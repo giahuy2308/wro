@@ -4,7 +4,7 @@
 
 // Hằng số
 int circumference = 20.4;
-int wheelBase = 15;
+double wheelBase = 15.5;
 
 // Điều khiển - Giai đoạn
 bool begin = false;
@@ -13,7 +13,7 @@ bool reset = false;
 
 // Cảm biến
 MiniR4Analog<(18U), (19U)> greyscaleSensor;
-MatrixLaserV2& laserSensor = MiniR4.I2C3.MXLaserV2;
+MatrixLaserV2& laserSensor = MiniR4.I2C3.MXLaserV2; 
 
 // Debug
 Adafruit_SSD1306& screen = MiniR4.OLED;
@@ -22,40 +22,36 @@ Adafruit_SSD1306& screen = MiniR4.OLED;
 MiniR4DriveDC<1> drivetrain;
 MiniR4DC<4> motor_1;
 
-// Servo
 MiniR4RC<3> claw;
 
 // Nút
-MiniR4BTN<1> btn_down;
-MiniR4BTN<2> btn_up;
+MiniR4BTN<1> btnDown;
+MiniR4BTN<2> btnUp;
+
+MiniR4Digital<13, 10> frameSwitch;
 
 // Vị trí
 MiniR4Motion pos;
 
-int dir = 1;  // -1: trái, 1: phải
+int dir = 1; // -1: trái, 1: phải  
 
 // Di chuyển
-int basePower = 30;
-
-// color
-int color[6];
+int basePower = 60;
 
 // ------------------------------------------------
 
 // ---------------------Class----------------------
 
 struct Dis {
-  double value;
+    double value;
 
-  explicit Dis(double value)
-    : value(value - 2) {}
+    explicit Dis(double value) : value(value - 2) {}
 };
 
 struct Ms {
-  int value;
+    int value;
 
-  explicit Ms(int value)
-    : value(value) {}
+    explicit Ms(int value) : value(value) {}
 };
 
 
@@ -63,30 +59,48 @@ struct Ms {
 
 // ---------------------Hàm------------------------
 
-// Điều khiển
-void resetFn() {
-  while (MiniR4.D4.getL() == 0) {
-    motor_1.setPower(35);
-  }
+// Tính toán
+double toRadian(double angle) {
+  return angle * 3.141 / 180;
+}
 
-  motor_1.setBrake(true);
+// Cơ chế làm nhiệm vụ
+bool isOpen = false;
+void toggleFrame(bool reset = false, bool again = false) {
+  if (again || (!isOpen && !reset)) {
+      motor_1.setPower(-35);
+
+      delay(again ? 200 : 550);
+
+      motor_1.setBrake(true);
+
+      isOpen = true;
+  } 
+  else {
+      while (frameSwitch.getL() == 0)
+          motor_1.setPower(35);
+
+      motor_1.setBrake(true);
+
+      isOpen = false;
+  }
 }
 
 // Di chuyển
 double prevAngle = 0;
 
-void moveForward(int target = 0) {
+void move(int target = 0) {
   drivetrain.MoveGyro(basePower, target);
 }
-void moveForward(int powerL, int powerR) {
+void move(int powerL, int powerR) {
   drivetrain.MoveSync(powerL, powerR);
 }
-void moveForward(Ms time, int power = basePower, int target = 0, bool brake = true) {
+void move(Ms time, int target = 0, int power = basePower, bool brake = true) {
   prevAngle = pos.getEuler(MiniR4Motion::AxisType::Yaw);
 
   drivetrain.MoveGyroTime(power, target, time.value / 1000, brake);
 }
-void moveForward(Dis distance, int power = basePower, int target = 0, bool brake = true) {
+void move(Dis distance, int target = 0, int power = basePower, bool brake = true) {
   prevAngle = pos.getEuler(MiniR4Motion::AxisType::Yaw);
 
   double deg = distance.value / circumference * 360 - 14;
@@ -98,33 +112,50 @@ void turn(int target, int mode = 1, int power = basePower, bool brake = true) {
   prevAngle = pos.getEuler(MiniR4Motion::AxisType::Yaw);
 
   drivetrain.TurnGyro(power, target, mode, brake);
-
+      
   delay(50);
 }
 
-void moveArc(int r, int target, int powerR = basePower) {
-  if (getAngle() >= target) {
-    phase++;
+void moveArc(double r, int angle, int powerR = basePower) {
+  const double Kp_r = 0.05;
+  const double Kp_angle = 0.75;
+  const double Kd_angle = 0.05;
 
-    drivetrain.brake(true);
+  while (true) {
+    int angleError = angle - getAngle();
 
-    return;
+    int gyro = getGyroZ();
+
+    if (abs(angleError) < 2) {
+      drivetrain.brake(true);  
+
+      break;
+    }
+
+    int32_t speed[4];
+    pos.getAllSpeed(speed);
+
+    double denominator = speed[2] + speed[1];
+
+    double cur_r;
+
+    if (abs(denominator) < 0.001) cur_r = r;
+    else cur_r = (wheelBase / 2.0) * (speed[2] - speed[1]) / denominator;
+
+    double rError = (r - cur_r) * Kp_r;
+
+    double anglePower = abs(angleError) * Kp_angle - Kd_angle * abs(gyro);
+
+    anglePower = constrain(anglePower, 10, powerR);
+
+
+    int powerL = anglePower * (r - wheelBase / 2) / (r + wheelBase / 2);
+
+    move(powerL - rError, anglePower + rError);
   }
-
-  int32_t speed[4];
-
-  pos.getAllSpeed(speed);
-
-  int powerL = powerR * (r - wheelBase / 2) / (r + wheelBase / 2);
-
-  double cur_r = (wheelBase / 2) * abs(speed[2] - speed[1]) / (speed[2] + speed[1]);
-
-  double error = (r - cur_r) * 0.01;
-
-  moveForward(powerL - error, powerR + error);
 }
 
-// Vị trí
+// Vị trí và hướng
 double getIMUAngle() {
   return pos.getEuler(MiniR4Motion::AxisType::Yaw);
 }
@@ -134,17 +165,19 @@ double getAngle() {
   return angle;
 }
 
-int getDistance() {
+double getDistance() {
   return circumference * (drivetrain.getDegrees() + 14) / 360 + 2;
 }
 
+double getLaserDis() {
+  return laserSensor.getDistance() - 4.5;
+}
 
-
+double getGyroZ() {
+  return pos.getGyro(MiniR4Motion::AxisType::Z);
+}
 
 // Dò line
-int lastError;
-int greyscaleSetpoint = 950;
-
 void lineDetector(int lineAngle = 0) {
   int greyscale;
   double headingError = lineAngle - getIMUAngle();
@@ -166,42 +199,6 @@ void lineDetector(int lineAngle = 0) {
   return;
 }
 
-void lineFollow(int target = 0) {
-  int greyscale = greyscaleSensor.getAIL();
-
-  double headingError = getIMUAngle() - target;
-
-  if (greyscale > greyscaleSetpoint && abs(headingError) < 3) {
-    if (headingError > 0) dir = 1;
-    else dir = -1;
-
-    moveForward();
-
-    return;
-  }
-
-  drivetrain.brake(false);
-
-  int gsError = (greyscaleSetpoint - greyscale) * dir;
-  // int correction = gsError * 0.05 + (gsError - lastError) * 0.15;
-  int correction = gsError * 0.3 + (gsError - lastError) * 0.25 + headingError * 0.5;
-
-
-  moveForward(basePower - correction, basePower + correction);
-  // moveForward(-20,-20);
-
-  lastError = gsError;
-}
-
-// Motor
-void grabTool(int basePower = 45, int time = 500) {
-  motor_1.setPower(45);
-
-  delay(500);
-  motor_1.setBrake(true);
-  return;
-}
-
 // Debug
 void print(int x, int y, auto content) {
   screen.setCursor(x, y);
@@ -212,65 +209,64 @@ void print(int x, int y, auto content) {
 
 // ---------------------Main-----------------------
 
-void color_detector(int t = 0) {
-  while (true) {
-    if (MiniR4.I2C4.MXColorV3.getRaw_R() < 93 && MiniR4.I2C4.MXColorV3.getRaw_G() < 93 && MiniR4.I2C4.MXColorV3.getRaw_B() < 93) {
-      drivetrain.brake(false);
-      break;
-    } else {
-      moveForward(50, 50);
-    }
-  }
-
-
-  color[1 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
-  while (getAngle() < 20) {
-    moveForward(30, -30);
-  }
-  drivetrain.brake(true);
-  color[0 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
-  while (getAngle() > -20) {
-    moveForward(-30, 30);
-  }
-  drivetrain.brake(true);
-  color[2 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
-  return;
-}
-
-
 void phase0() {
-  while (getAngle() < 90) {
-    if (getAngle() > 60 && greyscaleSensor.getAIL() > 850) {
-      drivetrain.resetCounter();
-      break;
-    }
-
-    int power = 20 + (90 - getAngle()) * 0.2;
-
-    moveForward(power * 2.5, power);
-
-    drivetrain.resetCounter();
-  }
+  moveArc(-15, 90, 30);
 
   drivetrain.brake(false);
 
-  while (getDistance() < 50)
-    lineFollow();
+  int angle = getAngle() - 90;
+
+  while (getLaserDis() > 175) 
+    move(angle);
+  
+  while (getLaserDis() < 175)
+    move();
+ 
+  while (getLaserDis() > 175)
+    move();
+
+  while (getLaserDis() < 175)
+    move();
 
   drivetrain.brake(false);
 
-  while (laserSensor.getDistance() < 190)
-    moveForward();
+  delay(200);
 
-  while (laserSensor.getDistance() > 190)
-    moveForward();
+  turn(-90 - getIMUAngle());
 
-  while (laserSensor.getDistance() < 190)
-    moveForward();
+  move(Dis{6}, 0, -basePower * 0.5, false);
 
-  drivetrain.brake(false);
+  toggleFrame();
+
+  move(Dis{6}, 0, -basePower * 0.5, false);
+
+  toggleFrame(false, true);
+
+  turn(85 - getIMUAngle());
+
+  move(Dis{40}, 0, -basePower, false);
+
+  move(Dis{5});
+
+  double lastAngle = getAngle();
+
+  delay(200);
+
+  turn(-10);
+
+  delay(200);
+  
+  double radian = toRadian(lastAngle + getAngle());
+
+  int distance = 25 / cos(radian) - getLaserDis() / 10 * tan(radian);
+
+  move(Dis{distance});
 
   phase++;
+}
+
+void phase1 () {
+
 }
 
 void setup() {
@@ -283,64 +279,54 @@ void setup() {
 
   screen.clearDisplay();
 
+  // Servo
+  claw.setHWDir(false);
+
   // Pin
   MiniR4.PWR.setBattCell(2);
 
   // Drivetrain
   drivetrain.begin(2, 3, false, true);
 
-  // Motor
-  motor_1.begin();
-
-  // Claw
-  claw.begin();
-  claw.setHWDir(true);
-
   // Thiết lập lại giá trị IMU, PID
   pos.resetIMUValues();
 
   drivetrain.setMoveGyroPID(6, 0, 5);
+  drivetrain.setMoveSyncPID(0.02, 0, 0.04);
   drivetrain.setTurnGyroPID(30, 0.027, 7);
-
-  //color
-  MiniR4.I2C4.MXColorV3.begin();
-  MiniR4.I2C4.MXColorV3.setWhiteBalance(282, 395, 336);
 }
-
-
 
 void loop() {
   // Debug
   if (begin == false) {
     screen.clearDisplay();
 
-    print(10, 10, getAngle());
-    print(50, 10, greyscaleSensor.getAIL());
-    print(90, 10, getIMUAngle());
+    print(0, 0, getAngle());
+    print(40, 0, greyscaleSensor.getAIL());
+    print(40, 0, getLaserDis());
 
     screen.display();
   }
 
-  if (btn_down.getState()) {
-    // if (reset == false)
-    //   resetFn();
-
+  if (btnDown.getState()) {
     // NOTE: bỏ đống này vô resetFn
     drivetrain.brake(true);
     drivetrain.resetCounter();
 
     pos.resetIMUValues();
-    claw.setAngle(0);
     prevAngle = 0;
 
     screen.clearDisplay();
+
+    toggleFrame(true);
+    claw.setAngle(10);
 
     begin = false;
     reset = true;
     phase = 0;
   }
 
-  if (btn_up.getState()) {
+  if (btnUp.getState()) {
     begin = true;
     reset = false;
   }
@@ -348,21 +334,17 @@ void loop() {
   if (begin == true) {
     // Debug
     screen.clearDisplay();
-
-    print(10, 10, getAngle());
-    print(50, 10, greyscaleSensor.getAIL());
-    print(90, 10, getIMUAngle());
-
+ 
+    print(0, 0, getAngle());
+    print(40, 0, greyscaleSensor.getAIL());
+    print(0, 10, getLaserDis());
+    print(40, 10, getAngle());
 
     screen.display();
 
     // Giai đoạn
-    // lineFollow();
-    if (phase == 0) {
-
-      claw.setAngle(60);
-      phase++;
-    };
+    if (phase == 0) phase0();
+    if (phase == 1) phase1();
 
     // if (phase == 0) {
     //   if (MiniR4.D4.getL() == 1) {
