@@ -192,9 +192,15 @@ double getGyroZ() {
 
 
 // Dò line
+<<<<<<< HEAD
 int greyscaleSetpoint = 960;
 
 void lineDetector(int lineAngle = 0, int c = 1) {
+=======
+int greyscaleSetpoint = 950;
+
+void lineDetector(int lineAngle = 0, int power = basePower) {
+>>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
   int greyscale;
   int counter = 1;
 
@@ -202,6 +208,7 @@ void lineDetector(int lineAngle = 0, int c = 1) {
 
   while (true) {
     greyscale = greyscaleSensor.getAIL();
+<<<<<<< HEAD
     move();
     if (greyscale > greyscaleSetpoint) {
       if (c == counter) break;
@@ -215,6 +222,16 @@ void lineDetector(int lineAngle = 0, int c = 1) {
   // Serial.println(headingError);
 
   move(Dis{ 1 / cos((90 - headingError) * PI / 180) });
+=======
+    move(basePower, basePower);
+    if (greyscale > greyscaleSetpoint) break;
+  }
+
+  drivetrain.brake(false);
+
+  move(Dis{ 1 / cos((90 - headingError) * PI / 180) });
+
+>>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
   turn(headingError);
 
   return;
@@ -292,6 +309,13 @@ void phase0() {
   turn(82 - getAngle());
 
   double lastAngle = getAngle();
+<<<<<<< HEAD
+=======
+
+  move(Dis{ 40 }, 0, -basePower, false);
+
+  move(Dis{ 15 });
+>>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
 
   move(Dis{ 40 }, 0, -basePower, false);
 
@@ -299,6 +323,7 @@ void phase0() {
 
   delay(200);
 
+<<<<<<< HEAD
   turn(-30);
 
   delay(200);
@@ -306,8 +331,21 @@ void phase0() {
   angle = lastAngle + getAngle();
 
   double distance = 24 / cos(toRadian(angle)) - getLaserDis() * tan(toRadian(angle));
+=======
+  angle = lastAngle + getAngle();
 
-  move(Dis{ distance });
+  double radius = 9 / (2 * sin(angle));
+>>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
+
+  double distance = 24 / cos(toRadian(angle)) - getLaserDis() * tan(toRadian(angle));
+
+  move(Dis{ distance - 5 });
+
+  delay(200);
+
+  lineDetector(92 - angle, basePower * 0.5);
+
+  delay(100);
 
   double radius = 9 / (2 * sin(angle));
 
@@ -330,6 +368,7 @@ void phase0() {
 }
 
 void phase1() {
+<<<<<<< HEAD
   // moveArc(30, 60, 100);
 
   // delay(1000);
@@ -337,6 +376,58 @@ void phase1() {
   // drivetrain.brake(false);
 
   phase++;
+=======
+
+  while (getLaserDis() > 16)
+    move();
+
+  while (getLaserDis() < 16)
+    move();
+
+  drivetrain.brake(false);
+
+  move(Dis{ 30 });
+
+  delay(200);
+
+  turn(90);
+
+  delay(200);
+
+  move(Dis{ 15 }, 0, -basePower * 0.5, false);
+
+  toggleFrame(true);
+
+  turn(-50);
+
+  delay(200);
+
+  move(Dis{ 15 });
+
+  // double lastAngle = getAngle();
+
+  lineDetector(130);
+
+  // delay(200);
+
+  // turn(180 - lastAngle);
+
+  delay(2000);
+
+  move(Dis{ 25 }, 0, -basePower * 0.5, false);
+
+  toggleFrame();
+
+  double lastAngle = getAngle();
+
+  turn(30);
+
+  move(Dis{ 40 });
+
+  // linedetector();
+
+  lineDetector(lastAngle);
+>>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
 }
 
 void setup() {
