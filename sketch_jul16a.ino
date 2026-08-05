@@ -23,6 +23,7 @@ MiniR4DriveDC<1> drivetrain;
 MiniR4DC<4> motor_1;
 
 MiniR4RC<3> claw;
+MiniR4RC<2> arm;
 
 // Nút
 MiniR4BTN<1> btnDown;
@@ -36,7 +37,7 @@ MiniR4Motion pos;
 int dir = 1;  // -1: trái, 1: phải
 
 // Di chuyển
-int basePower = 60;
+int basePower = 54;
 
 // Color
 int color[6];
@@ -70,23 +71,36 @@ double toRadian(double angle) {
 }
 
 // Cơ chế làm nhiệm vụ
-bool isOpen = false;
+bool isOpenFrame = false;
 void toggleFrame(bool reset = false, bool again = false) {
-  if (again || (!isOpen && !reset)) {
+  if (again || (!isOpenFrame && !reset)) {
     motor_1.setPower(-35);
 
     delay(again ? 200 : 550);
 
     motor_1.setBrake(true);
 
-    isOpen = true;
+    isOpenFrame = true;
   } else {
     while (frameSwitch.getL() == 0)
       motor_1.setPower(35);
 
     motor_1.setBrake(true);
 
-    isOpen = false;
+    isOpenFrame = false;
+  }
+}
+
+bool hasLiftedArm = false;
+void toggleArm(bool reset = false) {
+  if (hasLiftedArm || reset) {
+    arm.setAngle(32);
+
+    hasLiftedArm = false;
+  } else {
+    arm.setAngle(142);
+
+    hasLiftedArm = true;
   }
 }
 
@@ -169,7 +183,7 @@ double getDistance() {
 }
 
 double getLaserDis() {
-  return laserSensor.getDistance() / 10 - 4.5;
+  return laserSensor.getDistance() / 10 - 0.45;
 }
 
 double getGyroZ() {
@@ -285,7 +299,7 @@ void phase0() {
 
   delay(200);
 
-  turn(-12);
+  turn(-30);
 
   delay(200);
 
@@ -299,7 +313,7 @@ void phase0() {
 
   delay(200);
 
-  moveArc(-radius, 2 * angle, 30);
+  moveArc(-abs(radius), angle, 30);
 
   drivetrain.brake(false);
 
@@ -335,9 +349,6 @@ void setup() {
 
   screen.clearDisplay();
 
-  // Servo
-  claw.setHWDir(false);
-
   // Pin
   MiniR4.PWR.setBattCell(2);
 
@@ -372,10 +383,11 @@ void loop() {
     pos.resetIMUValues();
     prevAngle = 0;
 
+    toggleArm(true);
+
     screen.clearDisplay();
 
     toggleFrame(true);
-    claw.setAngle(10);
 
     begin = false;
     reset = true;
