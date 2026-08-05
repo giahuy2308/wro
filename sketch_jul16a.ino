@@ -29,7 +29,8 @@ MiniR4RC<2> arm;
 MiniR4BTN<1> btnDown;
 MiniR4BTN<2> btnUp;
 
-MiniR4Digital<13, 10> frameSwitch;
+MiniR4Digital<13, 10> frameSwitchUp;
+MiniR4Digital<12, 11> frameSwitchDown;
 
 // Vị trí
 MiniR4Motion pos;
@@ -69,83 +70,6 @@ struct Ms {
 // Tính toán
 double toRadian(double angle) {
   return angle * 3.141 / 180;
-}
-
-// Cơ chế làm nhiệm vụ
-bool hasOpened = false;
-void toggleFrame(bool reset = false, bool again = false) {
-  if (again || (!hasOpened && !reset)) {
-    motor_1.setPower(-35);
-
-    delay(again ? 200 : 550);
-
-    motor_1.setBrake(true);
-
-    hasOpened = true;
-  } else {
-    while (frameSwitch.getL() == 0)
-      motor_1.setPower(35);
-
-    motor_1.setBrake(true);
-
-    hasOpened = false;
-  }
-}
-
-bool hasLiftedArm = true;
-void toggleArm(int angle) {
-  if (isnan(angle))
-    if (hasLiftedArm) {
-      arm.setAngle(144);
-    
-      hasLiftedArm = false;
-    } else {
-      arm.setAngle(0);
-
-      hasLiftedArm = true;
-    }
-  else arm.setAngle(angle);
-}
-
-bool hasOpenedClaw = false;
-void toggleClaw(int angle) {
-  if (isnan(angle))
-    if (hasOpenedClaw) {
-      claw.setAngle(0);
-
-      hasOpenedClaw = true;
-    } else {
-      claw.setAngle(144);
-
-      hasOpenedClaw = false;
-    }
-  else claw.setAngle(angle);
-}
-
-void shake(int times = 2) {
-  turn(-15 - getAngle());
-  delay(200);
-  
-  for (int i = 0; i < times; i++) {
-    turn(30 - getAngle());
-    delay(200);
-    
-    turn(-30 - getAngle());
-    delay(200);
-  }
-  
-  turn(15 - getAngle());
-  delay(200);
-}
-
-void getBrick(Dis distance) {
-  delay(200);
-
-  move(Dis{distance}, 0, -basePower, false);
-
-  toggleFrame();
-
-  shake();
 }
 
 // Di chuyển
@@ -227,7 +151,7 @@ double getDistance() {
 }
 
 double getLaserDis() {
-  return laserSensor.getDistance() / 10 - 0.45;
+  return laserSensor.getDistance() * 0.1;
 }
 
 double getGyroZ() {
@@ -252,9 +176,11 @@ void lineDetector(int angle = 0, int power = basePower) {
 
   drivetrain.brake(false);
 
-  move(Dis{ 9 });
+  move(Dis{ 8 });
 
   turn(headingError);
+
+  delay(200);
 
   return;
 }
@@ -295,6 +221,108 @@ void print(int x, int y, auto content) {
 
 // ---------------------Main-----------------------
 
+// Cơ chế làm nhiệm vụ
+bool hasOpened = false;
+const int limit = 3;
+void toggleFrame(bool reset = false, bool again = false) {
+  if (again || (!hasOpened && !reset)) {
+    int attemp = 0;
+
+    while (frameSwitchDown.getL() == 0){
+      if (attemp == limit) break;
+
+      motor_1.setPower(-35);
+
+      delay(600);
+
+      if (frameSwitchDown.getL() != 0) break;
+
+      move(Dis{7});
+
+      delay(500);
+
+      motor_1.setPower(35);
+
+      delay(200);
+
+      move(Dis{8}, 0, -basePower);
+
+      delay(500);
+
+      attemp++;
+    }
+
+    motor_1.setBrake(true);
+
+    hasOpened = true;
+  } else {
+    while (frameSwitchUp.getL() == 0)
+      motor_1.setPower(35);
+
+    motor_1.setBrake(true);
+
+    hasOpened = false;
+  }
+}
+
+bool hasLiftedArm = true;
+void toggleArm(int angle) {
+  if (isnan(angle))
+    if (hasLiftedArm) {
+      arm.setAngle(144);
+    
+      hasLiftedArm = false;
+    } else {
+      arm.setAngle(0);
+
+      hasLiftedArm = true;
+    }
+  else arm.setAngle(angle);
+}
+
+bool hasOpenedClaw = false;
+void toggleClaw(int angle) {
+  if (isnan(angle))
+    if (hasOpenedClaw) {
+      claw.setAngle(0);
+
+      hasOpenedClaw = true;
+    } else {
+      claw.setAngle(144);
+
+      hasOpenedClaw = false;
+    }
+  else claw.setAngle(angle);
+}
+
+void shake(int times = 2) {
+  turn(-15 - getAngle());
+  delay(200);
+  
+  for (int i = 0; i < times; i++) {
+    turn(30 - getAngle());
+    delay(200);
+    
+    turn(-30 - getAngle());
+    delay(200);
+  }
+  
+  turn(15 - getAngle());
+  delay(200);
+}
+
+void getBrick(Dis distance) {
+  delay(200);
+
+  move(Dis{distance}, 0, -basePower, false);
+
+  toggleFrame();
+
+  shake();
+
+  move(Dis{7}, 0, -basePower / 2);
+}
+
 void phase0() {
   moveArc(-14, 90, basePower / 2);
 
@@ -302,16 +330,16 @@ void phase0() {
 
   double angle = 90 - getAngle();
 
-  while (getLaserDis() > 16)
+  while (getLaserDis() > 18)
     move(angle);
 
-  while (getLaserDis() < 16)
+  while (getLaserDis() < 18)
     move();
 
-  while (getLaserDis() > 16)
+  while (getLaserDis() > 18)
     move();
 
-  while (getLaserDis() < 16)
+  while (getLaserDis() < 18)
     move();
 
   drivetrain.brake(false);
@@ -360,62 +388,43 @@ void phase0() {
 }
 
 void phase1() {
-
-  while (getLaserDis() > 16)
+  while (getLaserDis() > 18)
     move();
 
-  while (getLaserDis() < 16)
+  while (getLaserDis() < 18)
     move();
 
   drivetrain.brake(false);
 
-  move(Dis{ 30 });
+  move(Dis{ 25 });
+
+  turn(90 - getAngle());
 
   delay(200);
 
-  turn(90);
-
-  delay(200);
-
-  move(Dis{ 15 }, 0, -basePower * 0.5, false);
-
-  toggleFrame(true);
-
-  turn(-50);
-
-  delay(200);
-
-  move(Dis{ 15 });
-
-  // double lastAngle = getAngle();
-
-  lineDetector(130);
-
-  // delay(200);
-
-  // turn(180 - lastAngle);
-
-  delay(2000);
-
-  move(Dis{ 25 }, 0, -basePower * 0.5, false);
+  move(Dis{ 15 }, 0, -basePower / 2, false);
 
   toggleFrame();
 
-  double lastAngle = getAngle();
+  turn(-50 - getAngle());
 
-  turn(30);
+  delay(200);
 
-  move(Dis{ 40 });
+  move(Dis{ 18 });
 
-  // linedetector();
+  lineDetector(130);
 
-  lineDetector(lastAngle);
+  getBrick(Dis{13});
+
+  move(Dis{25});
+
+  moveArc(-24, 90);
 
   phase++;
 }
 
 void phase2() {
-  move(Dis{ 22 })
+  move(Dis{ 22 });
 
   turn(-45);
 
@@ -435,7 +444,7 @@ void phase2() {
 
   while (getLaserDis() > 28) move();
 
-  move(Dis{3});
+  move(Dis{3}); 
 
   moveArc(-25, 90);
 
@@ -445,7 +454,7 @@ void phase2() {
 
   turn(-90 - getAngle());
 
-  while (getLaserDis() > 16) move(-basePower, -basePower);
+  while (getLaserDis() > 18) move(-basePower, -basePower);
 
   move(Dis{5}, 0, -basePower);
 
@@ -504,6 +513,7 @@ void loop() {
 
     toggleFrame(true);
     claw.setAngle(0);
+    arm.setAngle(0);
 
     begin = false;
     reset = true;
@@ -531,32 +541,5 @@ void loop() {
     // Giai đoạn
     if (phase == 0) phase0();
     if (phase == 1) phase1();
-    if (phase == 2) phase2();
-    //  phase0();
-    // if (phase == 1) phase1();
-
-    // if (phase == 0) {
-    //   if (MiniR4.D4.getL() == 1) {
-    //     delay(100);
-
-    //     motor_1.setBrake(true);
-
-    //     delay(500);
-
-    //     phase++;
-    //   }
-
-    //   motor_1.setPower(35);
-    // }
-
-    // if (phase == 1) {
-    //   motor_1.setPower(-20);
-
-    //   delay(690);
-
-    //   motor_1.setBrake(true);
-
-    //   phase++;
-    // }
   }
 }
