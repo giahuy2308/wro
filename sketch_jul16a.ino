@@ -139,8 +139,6 @@ void shake(int times = 2) {
 }
 
 void getBrick(Dis distance) {
-  turn(180 - getAngle());
-
   delay(200);
 
   move(Dis{distance}, 0, -basePower, false);
