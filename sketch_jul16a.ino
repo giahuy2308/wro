@@ -274,13 +274,11 @@ void phase0() {
 
   double lastAngle = getAngle();
 
-  move(Dis{ 40 }, 0, -basePower, false);
-
   move(Dis{ 15 });
 
   delay(200);
 
-  turn(-10);
+  turn(-12);
 
   delay(200);
 
@@ -297,6 +295,23 @@ void phase0() {
   lineDetector(92 - angle, basePower * 0.5);
 
   delay(100);
+
+  double radius = 9 / (2 * sin(angle));
+
+  delay(200);
+
+  moveArc(-radius, 2 * angle, 30);
+
+  drivetrain.brake(false);
+
+  screen.clearDisplay();
+
+  print(0, 10, radius);
+  print(0, 0, angle);
+
+  screen.display();
+
+  delay(100000);
 
   phase++;
 }
@@ -431,7 +446,6 @@ void loop() {
 
     // Giai đoạn
     if (phase == 0) phase0();
-    if (phase == 1) phase1();
 
     // if (phase == 0) {
     //   if (MiniR4.D4.getL() == 1) {
