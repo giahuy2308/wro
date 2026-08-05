@@ -36,7 +36,7 @@ MiniR4Motion pos;
 int dir = 1;  // -1: trái, 1: phải
 
 // Di chuyển
-int basePower = 60;
+int basePower = 54;
 
 // Color
 int color[6];
@@ -169,7 +169,7 @@ double getDistance() {
 }
 
 double getLaserDis() {
-  return laserSensor.getDistance() / 10 - 4.5;
+  return laserSensor.getDistance() / 10 - 0.45;
 }
 
 double getGyroZ() {
@@ -178,9 +178,9 @@ double getGyroZ() {
 
 
 // Dò line
-int greyscaleSetpoint = 960;
+int greyscaleSetpoint = 950;
 
-void lineDetector(int lineAngle = 0, int c = 1) {
+void lineDetector(int lineAngle = 0, int power = basePower) {
   int greyscale;
   int counter = 1;
 
@@ -188,19 +188,14 @@ void lineDetector(int lineAngle = 0, int c = 1) {
 
   while (true) {
     greyscale = greyscaleSensor.getAIL();
-    move();
-    if (greyscale > greyscaleSetpoint) {
-      if (c == counter) break;
-      c++;
-    }
+    move(basePower, basePower);
+    if (greyscale > greyscaleSetpoint) break;
   }
 
   drivetrain.brake(false);
-  // Serial.print(lineAngle);
-  // Serial.print(" ");
-  // Serial.println(headingError);
 
   move(Dis{ 1 / cos((90 - headingError) * PI / 180) });
+
   turn(headingError);
 
   return;
@@ -279,8 +274,6 @@ void phase0() {
 
   double lastAngle = getAngle();
 
-  move(Dis{ 40 }, 0, -basePower, false);
-
   move(Dis{ 15 });
 
   delay(200);
@@ -291,9 +284,17 @@ void phase0() {
 
   angle = lastAngle + getAngle();
 
+  double radius = 9 / (2 * sin(angle));
+
   double distance = 24 / cos(toRadian(angle)) - getLaserDis() * tan(toRadian(angle));
 
-  move(Dis{ distance });
+  move(Dis{ distance - 5 });
+
+  delay(200);
+
+  lineDetector(92 - angle, basePower * 0.5);
+
+  delay(100);
 
   double radius = 9 / (2 * sin(angle));
 
@@ -316,13 +317,56 @@ void phase0() {
 }
 
 void phase1() {
-  // moveArc(30, 60, 100);
 
-  // delay(1000);
+  while (getLaserDis() > 16)
+    move();
 
-  // drivetrain.brake(false);
+  while (getLaserDis() < 16)
+    move();
 
-  phase++;
+  drivetrain.brake(false);
+
+  move(Dis{ 30 });
+
+  delay(200);
+
+  turn(90);
+
+  delay(200);
+
+  move(Dis{ 15 }, 0, -basePower * 0.5, false);
+
+  toggleFrame(true);
+
+  turn(-50);
+
+  delay(200);
+
+  move(Dis{ 15 });
+
+  // double lastAngle = getAngle();
+
+  lineDetector(130);
+
+  // delay(200);
+
+  // turn(180 - lastAngle);
+
+  delay(2000);
+
+  move(Dis{ 25 }, 0, -basePower * 0.5, false);
+
+  toggleFrame();
+
+  double lastAngle = getAngle();
+
+  turn(30);
+
+  move(Dis{ 40 });
+
+  // linedetector();
+
+  lineDetector(lastAngle);
 }
 
 void setup() {
