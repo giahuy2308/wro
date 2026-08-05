@@ -225,12 +225,10 @@ void toggleFrame(bool reset = false, bool again = false) {
   if (again || (!hasOpened && !reset)) {
     // motor_1.setPower(-35);
 
-    while (frameSwitchDown.getL() == 0){
+    while (frameSwitchDown.getL() == 0) {
       motor_1.setPower(-35);
 
       delay(500);
-
-      
     }
 
     motor_1.setBrake(true);
@@ -251,7 +249,7 @@ void toggleArm(int angle) {
   if (isnan(angle))
     if (hasLiftedArm) {
       arm.setAngle(144);
-    
+
       hasLiftedArm = false;
     } else {
       arm.setAngle(0);
@@ -277,31 +275,37 @@ void toggleClaw(int angle) {
 }
 
 void shake(int times = 2) {
-  turn(-15 - getAngle());
+
+  turn(-15);
+
+  double accError = getAngle() + 15;
+
   delay(200);
-  
+
   for (int i = 0; i < times; i++) {
-    turn(30 - getAngle());
-    delay(200);
-    
-    turn(-30 - getAngle());
-    delay(200);
+    turn(30);
+    accEcrror += getAngle() - 30;
+    delay(100);
+
+    turn(-30);
+    accEcrror += getAngle() + 30;
+    delay(100);
   }
-  
-  turn(15 - getAngle());
-  delay(200);
+
+  turn(15 - accError);
+  delay(100);
 }
 
 void getBrick(Dis distance) {
   delay(200);
 
-  move(Dis{distance}, 0, -basePower, false);
+  move(Dis{ distance }, 0, -basePower, false);
 
   toggleFrame();
 
   shake();
 
-  move(Dis{7}, 0, -basePower / 2);
+  move(Dis{ 7 }, 0, -basePower / 2);
 }
 
 void phase0() {
@@ -397,9 +401,9 @@ void phase1() {
 
   lineDetector(130 - getAngle());
 
-  getBrick(Dis{13});
+  getBrick(Dis{ 13 });
 
-  move(Dis{25});
+  move(Dis{ 25 });
 
   moveArc(-24, 90);
 
@@ -418,28 +422,28 @@ void phase2() {
   move(Dis{ 30 });
 
   angle += getAngle();
-  
+
   lineDetector(0 - angle);
 
-  getBrick(Dis{15});
+  getBrick(Dis{ 15 });
 
   moveArc(30, 90);
 
   while (getLaserDis() > 28) move();
 
-  move(Dis{3});
+  move(Dis{ 3 });
 
   moveArc(-25, 90);
 
   while (getLaserDis() > 11) move();
 
-  move(Dis{34});
+  move(Dis{ 34 });
 
   turn(-90 - getAngle());
 
   while (getLaserDis() > 16) move(-basePower, -basePower);
 
-  move(Dis{5}, 0, -basePower);
+  move(Dis{ 5 }, 0, -basePower);
 
   toggleFrame();
 
