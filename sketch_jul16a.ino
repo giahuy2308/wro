@@ -46,6 +46,7 @@ int color[6];
 
 // ---------------------Class----------------------
 
+// Note: Đơn vị là cm
 struct Dis {
   double value;
 
@@ -71,50 +72,23 @@ double toRadian(double angle) {
 }
 
 // Cơ chế làm nhiệm vụ
-<<<<<<< HEAD
-bool isOpenFrame = false;
-void toggleFrame(bool reset = false, bool again = false) {
-  if (again || (!isOpenFrame && !reset)) {
-=======
 bool hasOpened = false;
 void toggleFrame(bool reset = false, bool again = false) {
   if (again || (!hasOpened && !reset)) {
->>>>>>> cb68081
     motor_1.setPower(-35);
 
     delay(again ? 200 : 550);
 
     motor_1.setBrake(true);
 
-<<<<<<< HEAD
-    isOpenFrame = true;
-=======
     hasOpened = true;
->>>>>>> cb68081
   } else {
     while (frameSwitch.getL() == 0)
       motor_1.setPower(35);
 
     motor_1.setBrake(true);
 
-<<<<<<< HEAD
-    isOpenFrame = false;
-  }
-}
-
-bool hasLiftedArm = false;
-void toggleArm(bool reset = false) {
-  if (hasLiftedArm || reset) {
-    arm.setAngle(32);
-
-    hasLiftedArm = false;
-  } else {
-    arm.setAngle(142);
-
-    hasLiftedArm = true;
-=======
     hasOpened = false;
->>>>>>> cb68081
   }
 }
 
@@ -146,6 +120,34 @@ void toggleClaw(int angle) {
       hasOpenedClaw = false;
     }
   else claw.setAngle(angle);
+}
+
+void shake(int times = 2) {
+  turn(-15 - getAngle());
+  delay(200);
+  
+  for (int i = 0; i < times; i++) {
+    turn(30 - getAngle());
+    delay(200);
+    
+    turn(-30 - getAngle());
+    delay(200);
+  }
+  
+  turn(15 - getAngle());
+  delay(200);
+}
+
+void getBrick(Dis distance) {
+  turn(180 - getAngle());
+
+  delay(200);
+
+  move(Dis{distance}, 0, -basePower, false);
+
+  toggleFrame();
+
+  shake();
 }
 
 // Di chuyển
@@ -236,37 +238,16 @@ double getGyroZ() {
 
 
 // Dò line
-<<<<<<< HEAD
-int greyscaleSetpoint = 960;
-
-void lineDetector(int lineAngle = 0, int c = 1) {
-=======
 int greyscaleSetpoint = 950;
 
-void lineDetector(int lineAngle = 0, int power = basePower) {
->>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
+void lineDetector(int angle = 0, int power = basePower) {
   int greyscale;
   int counter = 1;
 
-  double headingError = lineAngle - getAngle();
+  double headingError = angle - getAngle();
 
   while (true) {
     greyscale = greyscaleSensor.getAIL();
-<<<<<<< HEAD
-    move();
-    if (greyscale > greyscaleSetpoint) {
-      if (c == counter) break;
-      c++;
-    }
-  }
-
-  drivetrain.brake(false);
-  // Serial.print(lineAngle);
-  // Serial.print(" ");
-  // Serial.println(headingError);
-
-  move(Dis{ 1 / cos((90 - headingError) * PI / 180) });
-=======
     move(basePower, basePower);
     if (greyscale > greyscaleSetpoint) break;
   }
@@ -275,7 +256,6 @@ void lineDetector(int lineAngle = 0, int power = basePower) {
 
   move(Dis{ 9 });
 
->>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
   turn(headingError);
 
   return;
@@ -353,13 +333,6 @@ void phase0() {
   turn(82 - getAngle());
 
   double lastAngle = getAngle();
-<<<<<<< HEAD
-=======
-
-  move(Dis{ 40 }, 0, -basePower, false);
-
-  move(Dis{ 15 });
->>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
 
   move(Dis{ 40 }, 0, -basePower, false);
 
@@ -367,19 +340,13 @@ void phase0() {
 
   delay(200);
 
-<<<<<<< HEAD
-  turn(-30);
+  turn(-10);
 
   delay(200);
 
-  angle = lastAngle + getAngle();
-
-  double distance = 24 / cos(toRadian(angle)) - getLaserDis() * tan(toRadian(angle));
-=======
   angle = lastAngle + getAngle();
 
   double radius = 9 / (2 * sin(angle));
->>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
 
   double distance = 24 / cos(toRadian(angle)) - getLaserDis() * tan(toRadian(angle));
 
@@ -391,36 +358,10 @@ void phase0() {
 
   delay(100);
 
-  double radius = 9 / (2 * sin(angle));
-
-  delay(200);
-
-  moveArc(-abs(radius), angle, 30);
-
-  drivetrain.brake(false);
-
-  screen.clearDisplay();
-
-  print(0, 10, radius);
-  print(0, 0, angle);
-
-  screen.display();
-
-  delay(100000);
-
   phase++;
 }
 
 void phase1() {
-<<<<<<< HEAD
-  // moveArc(30, 60, 100);
-
-  // delay(1000);
-
-  // drivetrain.brake(false);
-
-  phase++;
-=======
 
   while (getLaserDis() > 16)
     move();
@@ -471,11 +412,46 @@ void phase1() {
   // linedetector();
 
   lineDetector(lastAngle);
->>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
 }
 
 void phase2() {
+  move(Dis{ 22 })
+
+  turn(-45);
+
+  delay(200);
+
+  double angle = getAngle();
+
+  move(Dis{ 30 });
+
+  angle += getAngle();
   
+  lineDetector(0 - angle);
+
+  getBrick(Dis{15});
+
+  moveArc(30, 90);
+
+  while (getLaserDis() > 28) move();
+
+  move(Dis{3});
+
+  moveArc(-25, 90);
+
+  while (getLaserDis() > 11) move();
+
+  move(Dis{34});
+
+  turn(-90 - getAngle());
+
+  while (getLaserDis() > 16) move(-basePower, -basePower);
+
+  move(Dis{5}, 0, -basePower);
+
+  toggleFrame();
+
+  move(Dis{ 20 });
 }
 
 void setup() {
@@ -522,15 +498,10 @@ void loop() {
     pos.resetIMUValues();
     prevAngle = 0;
 
-    toggleArm(true);
-
     screen.clearDisplay();
 
     toggleFrame(true);
-<<<<<<< HEAD
-=======
     claw.setAngle(0);
->>>>>>> cb68081
 
     begin = false;
     reset = true;
@@ -556,15 +527,11 @@ void loop() {
     delay(500);
 
     // Giai đoạn
-<<<<<<< HEAD
-    if (phase == 0) phase0();
-=======
     if (phase == 0)
     {claw.setAngle(143);
     }
     //  phase0();
     // if (phase == 1) phase1();
->>>>>>> cb68081
 
     // if (phase == 0) {
     //   if (MiniR4.D4.getL() == 1) {
