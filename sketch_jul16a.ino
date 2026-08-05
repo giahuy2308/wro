@@ -385,6 +385,10 @@ void phase1() {
   lineDetector(lastAngle);
 }
 
+void phase2() {
+  
+}
+
 void setup() {
   MiniR4.begin();
   MiniR4.Motion.begin();
