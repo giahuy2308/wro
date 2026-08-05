@@ -412,6 +412,8 @@ void phase1() {
   // linedetector();
 
   lineDetector(lastAngle);
+
+  phase++;
 }
 
 void phase2() {
@@ -452,6 +454,8 @@ void phase2() {
   toggleFrame();
 
   move(Dis{ 20 });
+
+  phase++;
 }
 
 void setup() {
@@ -527,9 +531,9 @@ void loop() {
     delay(500);
 
     // Giai đoạn
-    if (phase == 0)
-    {claw.setAngle(143);
-    }
+    if (phase == 0) phase0();
+    if (phase == 1) phase1();
+    if (phase == 2) phase2();
     //  phase0();
     // if (phase == 1) phase1();
 
