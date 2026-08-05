@@ -23,6 +23,7 @@ MiniR4DriveDC<1> drivetrain;
 MiniR4DC<4> motor_1;
 
 MiniR4RC<3> claw;
+MiniR4RC<2> arm;
 
 // Nút
 MiniR4BTN<1> btnDown;
@@ -70,24 +71,54 @@ double toRadian(double angle) {
 }
 
 // Cơ chế làm nhiệm vụ
-bool isOpen = false;
+bool hasOpened = false;
 void toggleFrame(bool reset = false, bool again = false) {
-  if (again || (!isOpen && !reset)) {
+  if (again || (!hasOpened && !reset)) {
     motor_1.setPower(-35);
 
     delay(again ? 200 : 550);
 
     motor_1.setBrake(true);
 
-    isOpen = true;
+    hasOpened = true;
   } else {
     while (frameSwitch.getL() == 0)
       motor_1.setPower(35);
 
     motor_1.setBrake(true);
 
-    isOpen = false;
+    hasOpened = false;
   }
+}
+
+bool hasLiftedArm = true;
+void toggleArm(int angle) {
+  if (isnan(angle))
+    if (hasLiftedArm) {
+      arm.setAngle(144);
+    
+      hasLiftedArm = false;
+    } else {
+      arm.setAngle(0);
+
+      hasLiftedArm = true;
+    }
+  else arm.setAngle(angle);
+}
+
+bool hasOpenedClaw = false;
+void toggleClaw(int angle) {
+  if (isnan(angle))
+    if (hasOpenedClaw) {
+      claw.setAngle(0);
+
+      hasOpenedClaw = true;
+    } else {
+      claw.setAngle(144);
+
+      hasOpenedClaw = false;
+    }
+  else claw.setAngle(angle);
 }
 
 // Di chuyển
@@ -194,7 +225,7 @@ void lineDetector(int lineAngle = 0, int power = basePower) {
 
   drivetrain.brake(false);
 
-  move(Dis{ 1 / cos((90 - headingError) * PI / 180) });
+  move(Dis{ 9 });
 
   turn(headingError);
 
@@ -364,9 +395,6 @@ void setup() {
 
   screen.clearDisplay();
 
-  // Servo
-  claw.setHWDir(false);
-
   // Pin
   MiniR4.PWR.setBattCell(2);
 
@@ -404,7 +432,7 @@ void loop() {
     screen.clearDisplay();
 
     toggleFrame(true);
-    claw.setAngle(10);
+    claw.setAngle(0);
 
     begin = false;
     reset = true;
@@ -430,8 +458,11 @@ void loop() {
     delay(500);
 
     // Giai đoạn
-    if (phase == 0) phase0();
-    if (phase == 1) phase1();
+    if (phase == 0)
+    {claw.setAngle(143);
+    }
+    //  phase0();
+    // if (phase == 1) phase1();
 
     // if (phase == 0) {
     //   if (MiniR4.D4.getL() == 1) {
