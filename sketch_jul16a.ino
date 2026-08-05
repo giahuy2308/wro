@@ -71,22 +71,33 @@ double toRadian(double angle) {
 }
 
 // Cơ chế làm nhiệm vụ
+<<<<<<< HEAD
 bool isOpenFrame = false;
 void toggleFrame(bool reset = false, bool again = false) {
   if (again || (!isOpenFrame && !reset)) {
+=======
+bool hasOpened = false;
+void toggleFrame(bool reset = false, bool again = false) {
+  if (again || (!hasOpened && !reset)) {
+>>>>>>> cb68081
     motor_1.setPower(-35);
 
     delay(again ? 200 : 550);
 
     motor_1.setBrake(true);
 
+<<<<<<< HEAD
     isOpenFrame = true;
+=======
+    hasOpened = true;
+>>>>>>> cb68081
   } else {
     while (frameSwitch.getL() == 0)
       motor_1.setPower(35);
 
     motor_1.setBrake(true);
 
+<<<<<<< HEAD
     isOpenFrame = false;
   }
 }
@@ -101,7 +112,40 @@ void toggleArm(bool reset = false) {
     arm.setAngle(142);
 
     hasLiftedArm = true;
+=======
+    hasOpened = false;
+>>>>>>> cb68081
   }
+}
+
+bool hasLiftedArm = true;
+void toggleArm(int angle) {
+  if (isnan(angle))
+    if (hasLiftedArm) {
+      arm.setAngle(144);
+    
+      hasLiftedArm = false;
+    } else {
+      arm.setAngle(0);
+
+      hasLiftedArm = true;
+    }
+  else arm.setAngle(angle);
+}
+
+bool hasOpenedClaw = false;
+void toggleClaw(int angle) {
+  if (isnan(angle))
+    if (hasOpenedClaw) {
+      claw.setAngle(0);
+
+      hasOpenedClaw = true;
+    } else {
+      claw.setAngle(144);
+
+      hasOpenedClaw = false;
+    }
+  else claw.setAngle(angle);
 }
 
 // Di chuyển
@@ -229,7 +273,7 @@ void lineDetector(int lineAngle = 0, int power = basePower) {
 
   drivetrain.brake(false);
 
-  move(Dis{ 1 / cos((90 - headingError) * PI / 180) });
+  move(Dis{ 9 });
 
 >>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
   turn(headingError);
@@ -430,6 +474,10 @@ void phase1() {
 >>>>>>> 6eea34d81567d9a52c9677c18ac20219014b1ac1
 }
 
+void phase2() {
+  
+}
+
 void setup() {
   MiniR4.begin();
   MiniR4.Motion.begin();
@@ -479,6 +527,10 @@ void loop() {
     screen.clearDisplay();
 
     toggleFrame(true);
+<<<<<<< HEAD
+=======
+    claw.setAngle(0);
+>>>>>>> cb68081
 
     begin = false;
     reset = true;
@@ -504,7 +556,15 @@ void loop() {
     delay(500);
 
     // Giai đoạn
+<<<<<<< HEAD
     if (phase == 0) phase0();
+=======
+    if (phase == 0)
+    {claw.setAngle(143);
+    }
+    //  phase0();
+    // if (phase == 1) phase1();
+>>>>>>> cb68081
 
     // if (phase == 0) {
     //   if (MiniR4.D4.getL() == 1) {
