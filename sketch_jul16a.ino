@@ -193,11 +193,9 @@ void lineDetector(int lineAngle = 0, int power = basePower) {
   }
 
   drivetrain.brake(false);
-  // Serial.print(lineAngle);
-  // Serial.print(" ");
-  // Serial.println(headingError);
 
   move(Dis{ 1 / cos((90 - headingError) * PI / 180) });
+
   turn(headingError);
 
   return;
@@ -296,22 +294,32 @@ void phase0() {
 
   delay(200);
 
-  lineDetector(90 - angle, basePower * 0.3);
+  lineDetector(92 - angle, basePower * 0.5);
 
-  delay(5000);
+  delay(100);
 
   phase++;
 }
 
 void phase1() {
 
-  move(Dis{ 20 });
+  while (getLaserDis() > 16)
+    move();
+
+  while (getLaserDis() < 16)
+    move();
+
+  drivetrain.brake(false);
+
+  move(Dis{ 30 });
+
+  delay(200);
 
   turn(90);
 
   delay(200);
 
-  move(Dis{ 10 }, 0, -basePower * 0.5, false);
+  move(Dis{ 15 }, 0, -basePower * 0.5, false);
 
   toggleFrame(true);
 
@@ -319,16 +327,31 @@ void phase1() {
 
   delay(200);
 
-  lastAngle = getAngle();
+  move(Dis{ 15 });
 
+  // double lastAngle = getAngle();
 
-  lineDetector();
-  lineDetector();
+  lineDetector(130);
 
-  turn(180 - lastAngle);
+  // delay(200);
 
-  toggleFrame(false, true);
+  // turn(180 - lastAngle);
 
+  delay(2000);
+
+  move(Dis{ 25 }, 0, -basePower * 0.5, false);
+
+  toggleFrame();
+
+  double lastAngle = getAngle();
+
+  turn(30);
+
+  move(Dis{ 40 });
+
+  // linedetector();
+
+  lineDetector(lastAngle);
 }
 
 void setup() {
