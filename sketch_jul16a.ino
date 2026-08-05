@@ -36,7 +36,7 @@ MiniR4Motion pos;
 int dir = 1;  // -1: trái, 1: phải
 
 // Di chuyển
-int basePower = 60;
+int basePower = 54;
 
 // Color
 int color[6];
@@ -120,13 +120,13 @@ void turn(int target, int mode = 1, int power = basePower, bool brake = true) {
   delay(50);
 }
 
-void moveArc(double r, int angle, int powerR = basePower) {
+void moveArc(double r, double angle, int powerR = basePower) {
   const double Kp_r = 0.05;
   const double Kp_angle = 0.75;
   const double Kd_angle = 0.05;
 
   while (true) {
-    int angleError = angle - getAngle();
+    double angleError = angle - getAngle();
 
     int gyro = getGyroZ();
 
@@ -160,13 +160,8 @@ void moveArc(double r, int angle, int powerR = basePower) {
 }
 
 // Vị trí và hướng
-double getIMUAngle() {
-  return pos.getEuler(MiniR4Motion::AxisType::Yaw);
-}
 double getAngle() {
-  double angle = getIMUAngle() + prevAngle;
-
-  return angle;
+  return pos.getEuler(MiniR4Motion::AxisType::Yaw);
 }
 
 double getDistance() {
@@ -174,7 +169,7 @@ double getDistance() {
 }
 
 double getLaserDis() {
-  return laserSensor.getDistance() - 4.5;
+  return laserSensor.getDistance() / 10 - 0.45;
 }
 
 double getGyroZ() {
@@ -183,22 +178,26 @@ double getGyroZ() {
 
 
 // Dò line
-void lineDetector(int lineAngle = 0) {
+int greyscaleSetpoint = 950;
+
+void lineDetector(int lineAngle = 0, int power = basePower) {
   int greyscale;
-  double headingError = lineAngle - getIMUAngle();
+  int counter = 1;
+
+  double headingError = lineAngle - getAngle();
+
   while (true) {
     greyscale = greyscaleSensor.getAIL();
-    moveForward();
-    if (greyscale > greyscaleSetpoint) {
-      break;
-    }
+    move(basePower, basePower);
+    if (greyscale > greyscaleSetpoint) break;
   }
+
   drivetrain.brake(false);
   // Serial.print(lineAngle);
   // Serial.print(" ");
   // Serial.println(headingError);
 
-  moveForward(Dis{ 10 / cos((90 - headingError) * PI / 180) });
+  move(Dis{ 1 / cos((90 - headingError) * PI / 180) });
   turn(headingError);
 
   return;
@@ -211,19 +210,19 @@ void color_detector(int t = 0) {
       drivetrain.brake(false);
       break;
     } else {
-      moveForward(50, 50);
+      move(50, 50);
     }
   }
 
 
   color[1 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
   while (getAngle() < 20) {
-    moveForward(30, -30);
+    move(30, -30);
   }
   drivetrain.brake(true);
   color[0 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
   while (getAngle() > -20) {
-    moveForward(-30, 30);
+    move(-30, 30);
   }
   drivetrain.brake(true);
   color[2 + 3 * t] = MiniR4.I2C4.MXColorV3.getColorID();
@@ -241,29 +240,29 @@ void print(int x, int y, auto content) {
 // ---------------------Main-----------------------
 
 void phase0() {
-  moveArc(-15, 90, 30);
+  moveArc(-14, 90, basePower / 2);
 
   drivetrain.brake(false);
 
-  int angle = getAngle() - 90;
+  double angle = 90 - getAngle();
 
-  while (getLaserDis() > 160)
+  while (getLaserDis() > 16)
     move(angle);
 
-  while (getLaserDis() < 160)
+  while (getLaserDis() < 16)
     move();
 
-  while (getLaserDis() > 160)
+  while (getLaserDis() > 16)
     move();
 
-  while (getLaserDis() < 160)
+  while (getLaserDis() < 16)
     move();
 
   drivetrain.brake(false);
 
   delay(200);
 
-  turn(-90 - getIMUAngle());
+  turn(-90 - getAngle());
 
   move(Dis{ 6 }, 0, -basePower * 0.5, false);
 
@@ -273,13 +272,13 @@ void phase0() {
 
   toggleFrame(false, true);
 
-  turn(85 - getIMUAngle());
+  turn(82 - getAngle());
+
+  double lastAngle = getAngle();
 
   move(Dis{ 40 }, 0, -basePower, false);
 
-  move(Dis{ 5 });
-
-  double lastAngle = getAngle();
+  move(Dis{ 15 });
 
   delay(200);
 
@@ -287,16 +286,49 @@ void phase0() {
 
   delay(200);
 
-  double radian = toRadian(lastAngle + getAngle());
+  angle = lastAngle + getAngle();
 
-  int distance = 25 / cos(radian) - getLaserDis() / 10 * tan(radian);
+  double radius = 9 / (2 * sin(angle));
 
-  move(Dis{ distance });
+  double distance = 24 / cos(toRadian(angle)) - getLaserDis() * tan(toRadian(angle));
+
+  move(Dis{ distance - 5 });
+
+  delay(200);
+
+  lineDetector(90 - angle, basePower * 0.3);
+
+  delay(5000);
 
   phase++;
 }
 
 void phase1() {
+
+  move(Dis{ 20 });
+
+  turn(90);
+
+  delay(200);
+
+  move(Dis{ 10 }, 0, -basePower * 0.5, false);
+
+  toggleFrame(true);
+
+  turn(-50);
+
+  delay(200);
+
+  lastAngle = getAngle();
+
+
+  lineDetector();
+  lineDetector();
+
+  turn(180 - lastAngle);
+
+  toggleFrame(false, true);
+
 }
 
 void setup() {
@@ -321,7 +353,7 @@ void setup() {
   // Thiết lập lại giá trị IMU, PID
   pos.resetIMUValues();
 
-  drivetrain.setMoveGyroPID(6, 0, 5);
+  drivetrain.setMoveGyroPID(5, 0, 6);
   drivetrain.setMoveSyncPID(0.02, 0, 0.04);
   drivetrain.setTurnGyroPID(30, 0.027, 7);
 }
@@ -368,9 +400,11 @@ void loop() {
     print(0, 0, getAngle());
     print(40, 0, greyscaleSensor.getAIL());
     print(0, 10, getLaserDis());
-    print(40, 10, getAngle());
+    // print(40, 10, getAngle());
 
     screen.display();
+
+    delay(500);
 
     // Giai đoạn
     if (phase == 0) phase0();
