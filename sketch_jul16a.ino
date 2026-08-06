@@ -160,25 +160,24 @@ double getGyroZ() {
 
 
 // Dò line
-int greyscaleSetpoint = 950;
+int greyscaleSetpoint = 925;
 
-void lineDetector(int angle = 0, int power = basePower) {
+void lineDetector(int angle = 0, int power = basePower, Dis distance = Dis{ 5 }) {
   int greyscale;
-  int counter = 1;
-
-  double headingError = angle - getAngle();
 
   while (true) {
     greyscale = greyscaleSensor.getAIL();
-    move(basePower, basePower);
+    
+    move(power, power);
+
     if (greyscale > greyscaleSetpoint) break;
   }
 
   drivetrain.brake(false);
 
-  move(Dis{ 8 });
+  move(distance);
 
-  turn(headingError);
+  turn(angle - getAngle());
 
   delay(200);
 
@@ -223,33 +222,14 @@ void print(int x, int y, auto content) {
 
 // Cơ chế làm nhiệm vụ
 bool hasOpened = false;
-const int limit = 3;
 void toggleFrame(bool reset = false, bool again = false) {
   if (again || (!hasOpened && !reset)) {
-    int attemp = 0;
+    unsigned long startTime = millis();
 
-    while (frameSwitchDown.getL() == 0){
-      if (attemp == limit) break;
+    while (frameSwitchDown.getL() == 0) {
+      if (millis() - startTime >= 1000) break; 
 
       motor_1.setPower(-35);
-
-      delay(600);
-
-      if (frameSwitchDown.getL() != 0) break;
-
-      move(Dis{7});
-
-      delay(500);
-
-      motor_1.setPower(35);
-
-      delay(200);
-
-      move(Dis{8}, 0, -basePower);
-
-      delay(500);
-
-      attemp++;
     }
 
     motor_1.setBrake(true);
@@ -257,7 +237,7 @@ void toggleFrame(bool reset = false, bool again = false) {
     hasOpened = true;
   } else {
     while (frameSwitchUp.getL() == 0)
-      motor_1.setPower(35);
+      motor_1.setPower(40);
 
     motor_1.setBrake(true);
 
@@ -270,7 +250,7 @@ void toggleArm(int angle) {
   if (isnan(angle))
     if (hasLiftedArm) {
       arm.setAngle(144);
-    
+
       hasLiftedArm = false;
     } else {
       arm.setAngle(0);
@@ -295,32 +275,34 @@ void toggleClaw(int angle) {
   else claw.setAngle(angle);
 }
 
-void shake(int times = 2) {
-  turn(-15 - getAngle());
+void shake() {
+  while (getAngle() > -30)
+    move(-basePower * 0.7, 0);
+
+  while (getAngle() < 0)
+    move(basePower * 0.7, 0);
+
+  drivetrain.brake(false);
   delay(200);
-  
-  for (int i = 0; i < times; i++) {
-    turn(30 - getAngle());
-    delay(200);
-    
-    turn(-30 - getAngle());
-    delay(200);
-  }
-  
-  turn(15 - getAngle());
+
+  while (getAngle() < 30)
+    move(0, -basePower * 0.7);
+
+  while (getAngle() > 0)
+    move(0, basePower * 0.7);
+
+  drivetrain.brake(false);
   delay(200);
 }
 
 void getBrick(Dis distance) {
-  delay(200);
-
-  move(Dis{distance}, 0, -basePower, false);
+  move(Dis{ distance }, 0, -basePower, false);
 
   toggleFrame();
 
   shake();
 
-  move(Dis{7}, 0, -basePower / 2);
+  move(Ms{ 1000 }, -getAngle(), -basePower / 2);
 }
 
 void phase0() {
@@ -348,7 +330,7 @@ void phase0() {
 
   turn(-90 - getAngle());
 
-  move(Dis{ 6 }, 0, -basePower * 0.5, false);
+  move(Dis{ 8 }, 0, -basePower * 0.5, false);
 
   toggleFrame();
 
@@ -371,8 +353,6 @@ void phase0() {
   delay(200);
 
   angle = lastAngle + getAngle();
-
-  double radius = 9 / (2 * sin(angle));
 
   double distance = 24 / cos(toRadian(angle)) - getLaserDis() * tan(toRadian(angle));
 
@@ -404,21 +384,44 @@ void phase1() {
 
   move(Dis{ 15 }, 0, -basePower / 2, false);
 
+  turn(-10 - getAngle());
+
   toggleFrame();
 
-  turn(-50 - getAngle());
+  turn(-40);
 
   delay(200);
 
   move(Dis{ 18 });
 
-  lineDetector(130);
+  lineDetector(130, basePower, Dis{ 8 });
 
-  getBrick(Dis{13});
+  getBrick(Dis{ 20 });
 
-  move(Dis{25});
+  delay(300);
 
-  moveArc(-24, 90);
+  move(Dis{ 20 });
+
+  moveArc(-16, 90 - getAngle());
+
+  move(Dis{ 15 });
+
+  turn(-45 - getAngle());
+
+  delay(200);
+
+  move(Dis{ 8 });
+
+  // lineDetector(-45, basePower, Dis{8});
+
+  // delay(200);
+
+  lineDetector(135, basePower, Dis{ 8 });
+
+  delay(100);
+
+  move(Dis{ 15 }, 0, -basePower);
+  lineDetector(0, -basePower * 0.8);
 
   phase++;
 }
@@ -435,28 +438,28 @@ void phase2() {
   move(Dis{ 30 });
 
   angle += getAngle();
-  
+
   lineDetector(0 - angle);
 
-  getBrick(Dis{15});
+  getBrick(Dis{ 15 });
 
   moveArc(30, 90);
 
   while (getLaserDis() > 28) move();
 
-  move(Dis{3}); 
+  move(Dis{ 3 });
 
   moveArc(-25, 90);
 
   while (getLaserDis() > 11) move();
 
-  move(Dis{34});
+  move(Dis{ 34 });
 
   turn(-90 - getAngle());
 
   while (getLaserDis() > 18) move(-basePower, -basePower);
 
-  move(Dis{5}, 0, -basePower);
+  move(Dis{ 5 }, 0, -basePower);
 
   toggleFrame();
 
@@ -539,7 +542,10 @@ void loop() {
     delay(500);
 
     // Giai đoạn
-    if (phase == 0) phase0();
-    if (phase == 1) phase1();
+    // if (phase == 0) phase0();
+    if (phase == 0) {
+      toggleFrame();
+      phase1();
+    }
   }
 }
