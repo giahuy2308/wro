@@ -223,13 +223,9 @@ void print(int x, int y, auto content) {
 bool hasOpened = false;
 void toggleFrame(bool reset = false, bool again = false) {
   if (again || (!hasOpened && !reset)) {
-    // motor_1.setPower(-35);
+    motor_1.setPower(-35);
 
-    while (frameSwitchDown.getL() == 0) {
-      motor_1.setPower(-35);
-
-      delay(500);
-    }
+    delay(again ? 200 : 550);
 
     motor_1.setBrake(true);
 
@@ -274,26 +270,28 @@ void toggleClaw(int angle) {
   else claw.setAngle(angle);
 }
 
-void shake(int times = 2) {
+void shake() {
 
-  turn(-15);
+  move(Dis{ 5 }, 0, -basePower * 0.5, false);
 
-  double accError = getAngle() + 15;
+  toggleFrame();
 
+  while (getAngle() < 30)
+    move(basePower, 0);
+
+  drivetrain.brake(false);
   delay(200);
 
-  for (int i = 0; i < times; i++) {
-    turn(30);
-    accEcrror += getAngle() - 30;
-    delay(100);
+  while (getAngle() > -60)
+    move(0, basePower);
 
-    turn(-30);
-    accEcrror += getAngle() + 30;
-    delay(100);
-  }
+  drivetrain.brake(false);
+  delay(200);
 
-  turn(15 - accError);
-  delay(100);
+  while (getAngle() < 30)
+    move(basePower, 0);
+
+  drivetrain.brake(false);
 }
 
 void getBrick(Dis distance) {
@@ -306,6 +304,10 @@ void getBrick(Dis distance) {
   shake();
 
   move(Dis{ 7 }, 0, -basePower / 2);
+}
+
+void phaseNeg1() {
+  return;
 }
 
 void phase0() {
@@ -452,6 +454,31 @@ void phase2() {
   phase++;
 }
 
+void phase3() {
+  turn(-30);
+
+  lineDetector(-60, basePower, Dis{ 9 });
+
+  while (getLaserDis() > 16)
+    move();
+
+  while (getLaserDis() < 16)
+    move();
+
+  move(Dis{ 35 });
+
+  turn(-90);
+
+  lineDetetor();
+  lineDetetor(-90);
+
+  toggleFrame(true);
+
+  move(Dis{5}, 0, -basePower, false);
+
+  getBrick();
+}
+
 void setup() {
   MiniR4.begin();
   MiniR4.Motion.begin();
@@ -525,7 +552,7 @@ void loop() {
     delay(500);
 
     // Giai đoạn
-    if (phase == 0) phase0();
-    if (phase == 1) phase1();
+    if (phase == 0) phase3();
+    // if (phase == 1) phase1();
   }
 }
