@@ -385,10 +385,10 @@ void alignMosaic() {
     drivetrain.brake(false);
   }
 
+  move(Dis{ 10 }, -getAngle(), -basePower * 0.5);
+
   toggleArm(0);
   toggleClaw(0);
-
-  move(Dis{ 10 }, -getAngle(), -basePower * 0.5);
 }
 
 void getBrick(double curAngle) {
