@@ -39,7 +39,8 @@ MiniR4Motion pos;
 int dir = 1;  // -1: trái, 1: phải
 
 // Di chuyển
-int basePower = 85;
+int basePower = 64;
+int spedUpPower = 80;
 
 // Color
 int color[6];
@@ -63,6 +64,13 @@ struct Ms {
     : value(value) {}
 };
 
+struct Gyro {
+  int value;
+
+  explicit Gyro(int value)
+    : value(value) {}
+};
+
 
 // ------------------------------------------------
 
@@ -76,8 +84,8 @@ double toRadian(double angle) {
 // Di chuyển
 double prevAngle = 0;
 
-void move(int target = 0) {
-  drivetrain.MoveGyro(basePower, target);
+void move(Gyro target = Gyro{ 0 }, int power = basePower) {
+  drivetrain.MoveGyro(power, target.value);
 }
 void move(int powerL, int powerR) {
   drivetrain.MoveSync(powerL, powerR);
@@ -88,19 +96,13 @@ void move(Ms time, int target = 0, int power = basePower, bool brake = true) {
   drivetrain.MoveGyroTime(power, target, time.value / 1000, brake);
 }
 void move(Dis distance, int target = 0, int power = basePower, bool brake = true) {
-  prevAngle = pos.getEuler(MiniR4Motion::AxisType::Yaw);
-
   double deg = distance.value / circumference * 360 - 14;
 
   drivetrain.MoveGyroDegs(power, target, deg, brake);
 }
 
 void turn(int target, int mode = 1, int power = basePower, bool brake = true) {
-  prevAngle = pos.getEuler(MiniR4Motion::AxisType::Yaw);
-
   drivetrain.TurnGyro(power, target, mode, brake);
-
-  delay(50);
 }
 
 void moveArc(double r, double angle, int powerR = basePower) {
@@ -251,7 +253,14 @@ void toggleFrame(bool reset = false, bool again = false) {
 }
 
 bool hasLiftedArm = true;
-void toggleArm(int angle = -1) {
+void toggleArm(int angle = -1, bool reset = false) {
+  if (reset) {
+    arm.setAngle(10);
+    hasLiftedArm = true;
+
+    return;
+  }
+
   if (angle == -1)
     if (hasLiftedArm) {
       arm.setAngle(150);
@@ -262,22 +271,35 @@ void toggleArm(int angle = -1) {
 
       hasLiftedArm = true;
     }
-  else arm.setAngle(angle);
+  else {
+    arm.setAngle(angle);
+    hasLiftedArm = true;
+  }
 }
 
 bool hasOpenedClaw = false;
-void toggleClaw(int angle = -1) {
+void toggleClaw(int angle = -1, bool reset = false) {
+  if (reset) {
+    claw.setAngle(0);
+    hasOpenedClaw = false;
+
+    return;
+  }
+
   if (angle == -1)
     if (hasOpenedClaw) {
-      claw.setAngle(15);
-
-      hasOpenedClaw = true;
-    } else {
-      claw.setAngle(144);
+      claw.setAngle(0);
 
       hasOpenedClaw = false;
+    } else {
+      claw.setAngle(175);
+
+      hasOpenedClaw = true;
     }
-  else claw.setAngle(angle);
+  else {
+    claw.setAngle(angle);
+    hasLiftedArm = true;
+  }
 }
 
 void shake(unsigned long timeout = 2500) {
@@ -319,7 +341,7 @@ void getBrick(double curAngle) {
 
   shake();
 
-  move(Ms{ 2000 }, -getAngle(), -basePower / 2.5);
+  move(Ms{ 2000 }, -getAngle(), -basePower / 2);
 
   pos.resetIMUValues();
 }
@@ -342,19 +364,29 @@ void shortcut(int dir, double error) {
 void phaseAm1() {
   toggleArm();
 
-  delay(100);
+  toggleClaw();
+
+  delay(200);
+
+  double deg = 24.0 / circumference * 360 - 14;
+
+  drivetrain.MoveSyncDegs(basePower / 2, basePower / 2, deg, true);
+
+  delay(500);
 
   toggleClaw();
 
-  move(Dis{20});
+  delay(500);
 
-  turn(55);
+  toggleArm(130);
 
-  move(Dis{50});
+  turn(55 - getAngle());
+
+  move(Dis{ 36 }, 55 - getAngle());
 
   lineDetector(35);
 
-  
+  phase++;
 }
 
 void phase0() {
@@ -364,7 +396,7 @@ void phase0() {
 
   double angle = 90 - getAngle();
 
-  while (getLaserDisSide() > 18) move(angle);
+  while (getLaserDisSide() > 18) move(Gyro{ angle });
   while (getLaserDisSide() < 18) move();
   while (getLaserDisSide() > 18) move();
   while (getLaserDisSide() < 18) move();
@@ -421,7 +453,7 @@ void phase1() {
 
   drivetrain.brake(false);
 
-  //19
+  // Note: 19
   move(Dis{ 20 });
 
   turn(90 - getAngle());
@@ -509,11 +541,16 @@ void phase2() {
 
   lineDetector(53, basePower, 8);
 
+  delay(10000);
+
   shortcut(-1, 3);
 
-  while (getLaserDisSide() > 40)  drivetrain.MoveGyro(-basePower, 0);
+  while (getLaserDisSide() > 40) drivetrain.MoveGyro(-basePower, 0);
+
   drivetrain.brake(true);
+
   toggleFrame();
+
   move(Dis{ 13 }, 0, -basePower);
 
   phase++;
@@ -539,9 +576,9 @@ void setup() {
   // Thiết lập lại giá trị IMU, PID
   pos.resetIMUValues();
 
-  drivetrain.setMoveGyroPID(6.01, 0, 2.15);
+  drivetrain.setMoveGyroPID(5, 0, 6);
   drivetrain.setMoveSyncPID(0.02, 0, 0.04);
-  drivetrain.setTurnGyroPID(30, 0.027, 7);
+  drivetrain.setTurnGyroPID(35, 0.02, 7);
 }
 
 void loop() {
@@ -568,8 +605,8 @@ void loop() {
     screen.clearDisplay();
 
     toggleFrame(true);
-    claw.setAngle(15);
-    arm.setAngle(10);
+    toggleClaw(-1, true);
+    toggleArm(-1, true);
 
     begin = false;
     reset = true;
@@ -577,6 +614,8 @@ void loop() {
   }
 
   if (btnUp.getState()) {
+    delay(500);
+
     begin = true;
     reset = false;
   }
@@ -592,11 +631,9 @@ void loop() {
 
     screen.display();
 
-    delay(500);
-
     // Giai đoạn
-    if (phase == 0) phase0();
-    if (phase == 1) phase1();
-    if (phase == 2) phase2();
+    if (phase == 0) phaseAm1();
+    // if (phase == 1) phase1();
+    // if (phase == 2) phase2();
   }
 }
