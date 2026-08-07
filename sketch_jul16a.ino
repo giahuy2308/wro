@@ -13,7 +13,8 @@ bool reset = false;
 
 // Cảm biến
 MiniR4Analog<(18U), (19U)> greyscaleSensor;
-MatrixLaserV2& laserSensor = MiniR4.I2C3.MXLaserV2;
+MatrixLaserV2& laserSensorSide = MiniR4.I2C3.MXLaserV2;
+MatrixLaserV2& laserSensorBack = MiniR4.I2C4.MXLaserV2;
 
 // Debug
 Adafruit_SSD1306& screen = MiniR4.OLED;
@@ -23,7 +24,7 @@ MiniR4DriveDC<1> drivetrain;
 MiniR4DC<4> motor_1;
 
 MiniR4RC<3> claw;
-MiniR4RC<2> arm;
+MiniR4RC<1> arm;
 
 // Nút
 MiniR4BTN<1> btnDown;
@@ -38,7 +39,8 @@ MiniR4Motion pos;
 int dir = 1;  // -1: trái, 1: phải
 
 // Di chuyển
-int basePower = 54;
+int basePower = 64;
+int spedUpPower = 80;
 
 // Color
 int color[6];
@@ -62,6 +64,13 @@ struct Ms {
     : value(value) {}
 };
 
+struct Gyro {
+  int value;
+
+  explicit Gyro(int value)
+    : value(value) {}
+};
+
 
 // ------------------------------------------------
 
@@ -75,8 +84,8 @@ double toRadian(double angle) {
 // Di chuyển
 double prevAngle = 0;
 
-void move(int target = 0) {
-  drivetrain.MoveGyro(basePower, target);
+void move(Gyro target = Gyro{ 0 }, int power = basePower) {
+  drivetrain.MoveGyro(power, target.value);
 }
 void move(int powerL, int powerR) {
   drivetrain.MoveSync(powerL, powerR);
@@ -87,19 +96,13 @@ void move(Ms time, int target = 0, int power = basePower, bool brake = true) {
   drivetrain.MoveGyroTime(power, target, time.value / 1000, brake);
 }
 void move(Dis distance, int target = 0, int power = basePower, bool brake = true) {
-  prevAngle = pos.getEuler(MiniR4Motion::AxisType::Yaw);
-
   double deg = distance.value / circumference * 360 - 14;
 
   drivetrain.MoveGyroDegs(power, target, deg, brake);
 }
 
 void turn(int target, int mode = 1, int power = basePower, bool brake = true) {
-  prevAngle = pos.getEuler(MiniR4Motion::AxisType::Yaw);
-
   drivetrain.TurnGyro(power, target, mode, brake);
-
-  delay(50);
 }
 
 void moveArc(double r, double angle, int powerR = basePower) {
@@ -150,8 +153,12 @@ double getDistance() {
   return circumference * (drivetrain.getDegrees() + 14) / 360 + 2;
 }
 
-double getLaserDis() {
-  return laserSensor.getDistance() * 0.1;
+double getLaserDisSide() {
+  return laserSensorSide.getDistance() * 0.1;
+}
+
+double getLaserDisBack() {
+  return laserSensorBack.getDistance() * 0.1;
 }
 
 double getGyroZ() {
@@ -159,42 +166,31 @@ double getGyroZ() {
 }
 
 
-// Move theo line
-int greyscaleSetpoint = 925;
+// Dò line
+int greyscaleSetpoint = 930;
 
-void lineDetector(int angle = 0, int power = basePower, Dis distance = Dis{ 5 }) {
+void lineDetector(int angle = 0, int power = basePower, double distance = 5) {
   int greyscale;
 
   while (true) {
     greyscale = greyscaleSensor.getAIL();
 
-    move(power, power);
+    drivetrain.MoveGyro(power, 0);
 
     if (greyscale > greyscaleSetpoint) break;
   }
 
   drivetrain.brake(false);
 
-  move(distance);
+  move(Dis{ distance }, -getAngle());
 
-  turn(angle - getAngle());
+  int powerMotor = constrain(basePower * 90 / abs(angle), 20, 100);
 
-  delay(200);
+  turn(angle, 1, powerMotor);
 
-  return;
+  delay(100);
 }
 
-void turnToLine(double startingTurn = 0) {
-  turn(startingTurn);
-
-  while (true) {
-    int gs = greyscaleSensor.getAIL();
-    if (gs > greyscaleSetpoint) break;
-    move(basePower * 0.6, -basePower * 0.6);
-  }
-
-  drivetrain.brake(true);
-}
 // Color
 void color_detector(int t = 0) {
   while (true) {
@@ -239,6 +235,7 @@ void toggleFrame(bool reset = false, bool again = false) {
 
     while (frameSwitchDown.getL() == 0) {
       if (millis() - startTime >= 1000) break;
+      if (millis() - startTime >= 1000) break;
 
       motor_1.setPower(-35);
     }
@@ -248,7 +245,7 @@ void toggleFrame(bool reset = false, bool again = false) {
     hasOpened = true;
   } else {
     while (frameSwitchUp.getL() == 0)
-      motor_1.setPower(40);
+      motor_1.setPower(45);
 
     motor_1.setBrake(true);
 
@@ -257,77 +254,140 @@ void toggleFrame(bool reset = false, bool again = false) {
 }
 
 bool hasLiftedArm = true;
-void toggleArm(int angle) {
-  if (isnan(angle))
+void toggleArm(int angle = -1, bool reset = false) {
+  if (reset) {
+    arm.setAngle(10);
+    hasLiftedArm = true;
+
+    return;
+  }
+
+  if (angle == -1)
     if (hasLiftedArm) {
-      arm.setAngle(144);
+      arm.setAngle(150);
 
       hasLiftedArm = false;
     } else {
-      arm.setAngle(0);
+      arm.setAngle(10);
 
       hasLiftedArm = true;
     }
-  else arm.setAngle(angle);
+  else {
+    arm.setAngle(angle);
+    hasLiftedArm = true;
+  }
 }
 
 bool hasOpenedClaw = false;
-void toggleClaw(int angle) {
-  if (isnan(angle))
+void toggleClaw(int angle = -1, bool reset = false) {
+  if (reset) {
+    claw.setAngle(0);
+    hasOpenedClaw = false;
+
+    return;
+  }
+
+  if (angle == -1)
     if (hasOpenedClaw) {
       claw.setAngle(0);
 
-      hasOpenedClaw = true;
-    } else {
-      claw.setAngle(144);
-
       hasOpenedClaw = false;
+    } else {
+      claw.setAngle(175);
+
+      hasOpenedClaw = true;
     }
-  else claw.setAngle(angle);
+  else {
+    claw.setAngle(angle);
+    hasLiftedArm = true;
+  }
 }
 
-void shake() {
+void shake(unsigned long timeout = 2500) {
+  unsigned long startTime = millis();
+
   while (getAngle() > -30)
-    move(-basePower * 0.7, 0);
+    move(-basePower * 0.7, -10);
 
   while (getAngle() < 0)
-    move(basePower * 0.7, 0);
+    move(basePower * 0.7, 10);
 
   drivetrain.brake(false);
-  delay(200);
+  delay(100);
 
   while (getAngle() < 30)
-    move(0, -basePower * 0.7);
+    move(-10, -basePower * 0.7);
 
   while (getAngle() > 0)
-    move(0, basePower * 0.7);
+    move(10, basePower * 0.7);
 
   drivetrain.brake(false);
-  delay(200);
+
+  turn(-getAngle());
+
+  delay(100);
 }
 
-void getBrick(Dis distance) {
-  move(Dis{ distance }, 0, -basePower, false);
+void getBrick(double curAngle) {
+  double angle = curAngle - getAngle();
+
+  while (getLaserDisBack() > 22.5)
+    drivetrain.MoveGyro(-basePower / 2, angle);
+
+  drivetrain.brake(false);
 
   toggleFrame();
 
+  move(Dis{ 10 }, 0, basePower * 0.5);
+
   shake();
 
-  move(Ms{ 1000 }, -getAngle(), -basePower / 2);
+  move(Ms{ 2000 }, -getAngle(), -basePower / 2);
+
+  pos.resetIMUValues();
 }
 
-void phaseNeg1() {
+void shortcut(int dir, double error) {
+  while (getLaserDisSide() > 35) move();
+  while (getLaserDisSide() < 35) move();
 
-  toggleArm()
-    : toggleClaw()
-    :
+  drivetrain.brake(true);
 
-      move(Dis{ 30 });
+  turn(50 * dir, 0);
 
-  toggleClaw();
+  delay(100);
+
+  move(Dis{ 32 });
+
+  lineDetector(40 * dir, basePower, 8);
+}
+
+void phaseAm1() {
   toggleArm();
 
-  return;
+  toggleClaw();
+
+  delay(200);
+
+  double deg = 24.0 / circumference * 360 - 14;
+
+  drivetrain.MoveSyncDegs(basePower / 2, basePower / 2, deg, true);
+
+  delay(500);
+
+  toggleClaw();
+
+  delay(500);
+
+  toggleArm(130);
+
+  turn(55 - getAngle());
+
+  move(Dis{ 36 }, 55 - getAngle());
+
+  lineDetector(35);
+
+  phase++;
 }
 
 void phase0() {
@@ -337,158 +397,164 @@ void phase0() {
 
   double angle = 90 - getAngle();
 
-  while (getLaserDis() > 18)
-    move(angle);
+  while (getLaserDisSide() > 18) move(Gyro{ angle });
+  while (getLaserDisSide() < 18) move();
+  while (getLaserDisSide() > 18) move();
+  while (getLaserDisSide() < 18) move();
 
-  while (getLaserDis() < 18)
-    move();
+  drivetrain.brake(true);
 
-  while (getLaserDis() > 18)
-    move();
-
-  while (getLaserDis() < 18)
-    move();
-
-  drivetrain.brake(false);
-
-  delay(200);
+  delay(100);
 
   turn(-90 - getAngle());
 
-  move(Dis{ 8 }, 0, -basePower * 0.5, false);
+  move(Dis{ 9 }, 0, -basePower * 0.5, false);
 
   toggleFrame();
 
-  move(Dis{ 6 }, 0, -basePower * 0.5, false);
+  move(Dis{ 5 }, 0, -basePower * 0.5, false);
 
   toggleFrame(false, true);
 
   turn(82 - getAngle());
 
-  double lastAngle = getAngle();
+  angle = getAngle();
+
+  delay(100);
 
   move(Dis{ 40 }, 0, -basePower, false);
 
   move(Dis{ 15 });
 
-  delay(200);
+  delay(100);
 
-  turn(-10);
+  turn(-10 - getAngle());
 
-  delay(200);
+  angle += getAngle();
 
-  angle = lastAngle + getAngle();
+  delay(100);
 
-  double distance = 24 / cos(toRadian(angle)) - getLaserDis() * tan(toRadian(angle));
+  double distance = 24 / cos(toRadian(angle)) - getLaserDisSide() * tan(toRadian(angle));
 
   move(Dis{ distance - 5 });
 
-  delay(200);
+  delay(100);
 
   lineDetector(92 - angle, basePower * 0.5);
-
-  delay(100);
 
   phase++;
 }
 
 void phase1() {
-  while (getLaserDis() > 18)
+  while (getLaserDisSide() > 18)
     move();
 
-  while (getLaserDis() < 18)
+  while (getLaserDisSide() < 18)
     move();
 
   drivetrain.brake(false);
 
-  move(Dis{ 25 });
+  // Note: 19
+  move(Dis{ 20 });
 
   turn(90 - getAngle());
 
-  delay(200);
+  delay(100);
 
   move(Dis{ 15 }, 0, -basePower / 2, false);
 
-  turn(-10 - getAngle());
-
-  toggleFrame();
-
-  turn(-40);
-
-  delay(200);
-
-  move(Dis{ 18 });
-
-  lineDetector(130, basePower, Dis{ 8 });
-
-  getBrick(Dis{ 20 });
-
-  delay(300);
-
-  move(Dis{ 20 });
-
-  moveArc(-16, 90 - getAngle());
-
-  move(Dis{ 15 });
-
-  turn(-45 - getAngle());
-
-  delay(200);
-
-  move(Dis{ 8 });
-
-  // lineDetector(-45, basePower, Dis{8});
-
-  // delay(200);
-
-  lineDetector(135, basePower, Dis{ 8 });
+  turn(-25 - getAngle());
 
   delay(100);
 
-  move(Dis{ 15 }, 0, -basePower);
-  lineDetector(0, -basePower * 0.8);
+  toggleFrame();
+
+  turn(-35 - (-25 - getAngle()));
+
+  delay(100);
+
+  move(Dis{ 18 });
+
+  lineDetector(150, basePower, 8);
+
+  getBrick(150);
+
+  delay(100);
+
+  move(Dis{ 20 });
+
+  moveArc(-20, 90 - getAngle());
+
+  move(Dis{ 17.5 }, 90 - getAngle());
+
+  turn(-45 - getAngle());
+
+  delay(100);
+
+  move(Dis{ 8 });
+
+  lineDetector(135, basePower, 8);
+
+  move(Dis{ 19 }, 135 - getAngle(), -basePower);
+  move(Ms{ 1500 }, 0, -basePower / 3);
+
+  delay(100);
+
+  move(Dis{ 1.5 }, 0, basePower / 2);
+
+  toggleFrame(false, true);
+
+  move(Dis{ 6.7 * 1.3 }, 0, basePower / 2);
+
+  turn(41, 0);
+
+  move(Dis{ 30 }, 0, -basePower / 2);
+
+  toggleFrame();
+
+  move(Dis{ 12 }, 0, basePower / 2);
+
+  lineDetector(-41, basePower, 8);
 
   phase++;
 }
 
 void phase2() {
-  move(Dis{ 22 });
+  move(Dis{ 17 }, -41 - getAngle());
 
   turn(-45);
 
-  delay(200);
+  delay(100);
 
-  double angle = getAngle();
+  move(Dis{ 20 });
 
-  move(Dis{ 30 });
+  lineDetector(-135, basePower, 5);
 
-  angle += getAngle();
+  getBrick(-135);
 
-  lineDetector(0 - angle);
+  move(Dis{ 5 });
 
-  getBrick(Dis{ 15 });
+  turn(-50 - getAngle());
 
-  moveArc(30, 90);
+  delay(100);
 
-  while (getLaserDis() > 28) move();
+  move(Dis{ 18 }, -50 - getAngle());
 
-  move(Dis{ 3 });
+  lineDetector(53, basePower, 8);
 
-  moveArc(-25, 90);
+  delay(10000);
 
-  while (getLaserDis() > 11) move();
+  shortcut(-1, 3);
 
-  move(Dis{ 34 });
+  while (getLaserDisSide() > 40) drivetrain.MoveGyro(-basePower, 0);
 
-  turn(-90 - getAngle());
-
-  while (getLaserDis() > 18) move(-basePower, -basePower);
-
-  move(Dis{ 5 }, 0, -basePower);
+  drivetrain.brake(true);
 
   toggleFrame();
 
-  move(Dis{ 20 });
+  // Lấy gạch xanh dương
+
+  move(Dis{ 13 }, 0, -basePower);
 
   phase++;
 }
@@ -589,7 +655,8 @@ void phase3() {
 void setup() {
   MiniR4.begin();
   MiniR4.Motion.begin();
-  laserSensor.begin();
+  laserSensorSide.begin();
+  laserSensorBack.begin();
 
   // Debug
   Serial.begin(9600);
@@ -607,7 +674,7 @@ void setup() {
 
   drivetrain.setMoveGyroPID(5, 0, 6);
   drivetrain.setMoveSyncPID(0.02, 0, 0.04);
-  drivetrain.setTurnGyroPID(30, 0.027, 7);
+  drivetrain.setTurnGyroPID(35, 0.02, 7);
 }
 
 void loop() {
@@ -617,7 +684,8 @@ void loop() {
 
     print(0, 0, getAngle());
     print(40, 0, greyscaleSensor.getAIL());
-    print(80, 0, getLaserDis());
+    print(80, 0, getLaserDisSide());
+    print(80, 10, getLaserDisBack());
 
     screen.display();
   }
@@ -633,8 +701,8 @@ void loop() {
     screen.clearDisplay();
 
     toggleFrame(true);
-    claw.setAngle(0);
-    arm.setAngle(0);
+    toggleClaw(-1, true);
+    toggleArm(-1, true);
 
     begin = false;
     reset = true;
@@ -642,6 +710,8 @@ void loop() {
   }
 
   if (btnUp.getState()) {
+    delay(500);
+
     begin = true;
     reset = false;
   }
@@ -652,15 +722,14 @@ void loop() {
 
     print(0, 0, getAngle());
     print(40, 0, greyscaleSensor.getAIL());
-    print(0, 10, getLaserDis());
+    print(0, 10, getLaserDisBack());
     // print(40, 10, getAngle());
 
     screen.display();
 
-    delay(500);
-
     // Giai đoạn
-    if (phase == 0) phase3();
+    if (phase == 0) phaseAm1();
     // if (phase == 1) phase1();
+    // if (phase == 2) phase2();
   }
 }
