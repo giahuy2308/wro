@@ -191,6 +191,18 @@ void lineDetector(int angle = 0, int power = basePower, double distance = 5) {
   delay(100);
 }
 
+void turnToLine(double startingTurn = 0) {
+  turn(startingTurn);
+
+  while (true) {
+    int gs = greyscaleSensor.getAIL();
+    if (gs > greyscaleSetpoint) break;
+    move(basePower * 0.6, -basePower * 0.6);
+  }
+
+  drivetrain.brake(true);
+}
+
 // Color
 void color_detector(int t = 0) {
   while (true) {
@@ -256,7 +268,7 @@ void toggleFrame(bool reset = false, bool again = false) {
 bool hasLiftedArm = true;
 void toggleArm(int angle = -1, bool reset = false) {
   if (reset) {
-    arm.setAngle(10);
+    arm.setAngle(0);
     hasLiftedArm = true;
 
     return;
@@ -264,11 +276,11 @@ void toggleArm(int angle = -1, bool reset = false) {
 
   if (angle == -1)
     if (hasLiftedArm) {
-      arm.setAngle(150);
+      arm.setAngle(149);
 
       hasLiftedArm = false;
     } else {
-      arm.setAngle(10);
+      arm.setAngle(0);
 
       hasLiftedArm = true;
     }
@@ -328,6 +340,15 @@ void shake(unsigned long timeout = 2500) {
   delay(100);
 }
 
+void alignMosaic() {
+  move(Dis{ 2 }, 0, -basePower);
+
+  for (int i = 0; i < 4; i++) {
+    move(-basePower * pow(-1, i), basePower * pow(-1, i));
+    delay(100);
+  }
+}
+
 void getBrick(double curAngle) {
   double angle = curAngle - getAngle();
 
@@ -369,7 +390,7 @@ void phaseAm1() {
 
   delay(200);
 
-  double deg = 24.0 / circumference * 360 - 14;
+  double deg = 22.0 / circumference * 360 - 14;
 
   drivetrain.MoveSyncDegs(basePower / 2, basePower / 2, deg, true);
 
@@ -379,13 +400,19 @@ void phaseAm1() {
 
   delay(500);
 
-  toggleArm(130);
+  toggleArm(135);
 
   turn(55 - getAngle());
 
   move(Dis{ 36 }, 55 - getAngle());
 
-  lineDetector(35);
+  lineDetector(35, basePower, 8);
+
+  move(Ms{ 1750 }, 0, basePower / 1.5);
+
+  delay(100);
+
+  toggleClaw();
 
   phase++;
 }
@@ -564,12 +591,12 @@ void phase3() {
 
   turn(-30);
 
-  lineDetector(-60, basePower, Dis{ 9 });
+  lineDetector(-60, basePower, 9);
 
-  while (getLaserDis() > 16)
+  while (getLaserDisSide() > 16)
     move();
 
-  while (getLaserDis() < 16)
+  while (getLaserDisSide() < 16)
     move();
 
   move(Dis{ 35 });
@@ -578,8 +605,8 @@ void phase3() {
 
   delay(100);
 
-  lineDetetor();
-  lineDetetor(-90);
+  lineDetector();
+  lineDetector(-90);
 
   toggleFrame();
 
@@ -599,7 +626,7 @@ void phase3() {
 
   move(Dis{ 20 }, 0, -basePower, false);
 
-  move(Ms{ 1000 }, 0, -basepower * 0.5);
+  move(Ms{ 1000 }, 0, -basePower * 0.5);
 
   toggleFrame();
 
