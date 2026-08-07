@@ -39,7 +39,7 @@ MiniR4Motion pos;
 int dir = 1;  // -1: trái, 1: phải
 
 // Di chuyển
-int basePower = 64;
+int basePower = 54;
 int spedUpPower = 80;
 
 // Color
@@ -167,7 +167,7 @@ double getGyroZ() {
 
 
 // Dò line
-int greyscaleSetpoint = 930;
+int greyscaleSetpoint = 935;
 
 void lineDetector(int angle = 0, int power = basePower, double distance = 5) {
   int greyscale;
@@ -189,18 +189,6 @@ void lineDetector(int angle = 0, int power = basePower, double distance = 5) {
   turn(angle, 1, powerMotor);
 
   delay(100);
-}
-
-void turnToLine(double startingTurn = 0) {
-  turn(startingTurn);
-
-  while (true) {
-    int gs = greyscaleSensor.getAIL();
-    if (gs > greyscaleSetpoint) break;
-    move(basePower * 0.6, -basePower * 0.6);
-  }
-
-  drivetrain.brake(true);
 }
 
 // Color
@@ -280,7 +268,7 @@ void toggleArm(int angle = -1, bool reset = false) {
 
       hasLiftedArm = false;
     } else {
-      arm.setAngle(0);
+      arm.setAngle(2);
 
       hasLiftedArm = true;
     }
@@ -305,7 +293,7 @@ void toggleClaw(int angle = -1, bool reset = false) {
 
       hasOpenedClaw = false;
     } else {
-      claw.setAngle(175);
+      claw.setAngle(173);
 
       hasOpenedClaw = true;
     }
@@ -315,22 +303,22 @@ void toggleClaw(int angle = -1, bool reset = false) {
   }
 }
 
-void shake(unsigned long timeout = 2500) {
+void shake(unsigned long timeout = 3000) {
   unsigned long startTime = millis();
 
-  while (getAngle() > -30)
+  while (getAngle() > -30 && millis() - startTime < timeout)
     move(-basePower * 0.7, -10);
 
-  while (getAngle() < 0)
+  while (getAngle() < 0 && millis() - startTime < timeout)
     move(basePower * 0.7, 10);
 
   drivetrain.brake(false);
   delay(100);
 
-  while (getAngle() < 30)
+  while (getAngle() < 30 && millis() - startTime < timeout)
     move(-10, -basePower * 0.7);
 
-  while (getAngle() > 0)
+  while (getAngle() > 0 && millis() - startTime < timeout)
     move(10, basePower * 0.7);
 
   drivetrain.brake(false);
@@ -340,13 +328,67 @@ void shake(unsigned long timeout = 2500) {
   delay(100);
 }
 
+void test() {
+  move(Dis{ 1 }, 0, -20, true);
+}
+
 void alignMosaic() {
   move(Dis{ 2 }, 0, -basePower);
 
+  delay(200);
+
   for (int i = 0; i < 4; i++) {
-    move(-basePower * pow(-1, i), basePower * pow(-1, i));
-    delay(100);
+    if (i % 2)
+      move(-basePower * 0.3, basePower * 0.3);
+    else
+      move(basePower * 0.3, -basePower * 0.3);
+
+    delay(400);
+
+    drivetrain.brake(false);
   }
+
+  toggleArm(130);
+  delay(100);
+  move(-basePower * 0.3, -basePower * 0.3);
+
+  delay(700);
+
+  drivetrain.brake(true);
+
+  delay(500);
+
+  toggleArm(140);
+
+  delay(500);
+
+  toggleClaw();
+
+  delay(500);
+
+  move(-basePower * 0.3, -basePower * 0.3);
+
+  delay(550);
+
+  drivetrain.brake(true);
+
+  toggleClaw();
+
+  for (int i = 0; i < 4; i++) {
+    if (i % 2)
+      move(-basePower * 0.3, basePower * 0.3);
+    else
+      move(basePower * 0.3, -basePower * 0.3);
+
+    delay(400);
+
+    drivetrain.brake(false);
+  }
+
+  toggleArm(0);
+  toggleClaw(0);
+
+  move(Dis{ 10 }, -getAngle(), -basePower * 0.5);
 }
 
 void getBrick(double curAngle) {
@@ -370,17 +412,17 @@ void getBrick(double curAngle) {
 
 void shortcut(int dir, double error) {
   while (getLaserDisSide() > 35) move();
-  while (getLaserDisSide() < 35) move();
+  while (getLaserDisSide() < 33) move(basePower / 2, basePower / 2);
 
   drivetrain.brake(true);
 
-  turn(50 * dir, 0);
+  turn(49 * dir, 0);
 
   delay(100);
 
   move(Dis{ 32 });
 
-  lineDetector(40 * dir, basePower, 8);
+  lineDetector(41 * dir, basePower, 8);
 }
 
 void phaseAm1() {
@@ -392,7 +434,7 @@ void phaseAm1() {
 
   double deg = 22.0 / circumference * 360 - 14;
 
-  drivetrain.MoveSyncDegs(basePower / 2, basePower / 2, deg, true);
+  drivetrain.MoveSyncDegs(basePower * 0.75, basePower * 0.75, deg, true);
 
   delay(500);
 
@@ -400,28 +442,49 @@ void phaseAm1() {
 
   delay(500);
 
-  toggleArm(135);
+  toggleArm(120);
 
   turn(55 - getAngle());
 
   move(Dis{ 36 }, 55 - getAngle());
 
-  lineDetector(35, basePower, 8);
+  lineDetector(38, basePower, 7);
 
-  move(Ms{ 1750 }, 0, basePower / 1.5);
+  while (getLaserDisSide() > 35) move();
+  while (getLaserDisSide() < 35) move(basePower, basePower);
+
+  drivetrain.brake(false);
+
+  move(Dis{ 19 }, 0, basePower / 2);
+
+  delay(100);
+
+  toggleArm();
 
   delay(100);
 
   toggleClaw();
 
+  toggleArm(140);
+
+  alignMosaic();
+
+  move(Dis{ 40 }, 0, -basePower);
+
+  turn(-90 - getAngle());
+
+  move(Ms{ 3000 }, -90 - getAngle(), -basePower);
+
+  pos.resetIMUValues();
+
+  moveArc(-24, 90, basePower / 2);
+
+  drivetrain.brake(false);
+
   phase++;
 }
 
 void phase0() {
-  moveArc(-14, 90, basePower / 2);
-
-  drivetrain.brake(false);
-
   double angle = 90 - getAngle();
 
   while (getLaserDisSide() > 18) move(Gyro{ angle });
@@ -500,9 +563,9 @@ void phase1() {
 
   delay(100);
 
-  move(Dis{ 18 });
+  move(Dis{ 18 }, -35 - getAngle());
 
-  lineDetector(150, basePower, 8);
+  lineDetector(150, basePower, 7);
 
   getBrick(150);
 
@@ -527,13 +590,13 @@ void phase1() {
 
   delay(100);
 
-  move(Dis{ 1.5 }, 0, basePower / 2);
+  move(Dis{ 1.75 }, 0, basePower / 2);
 
   toggleFrame(false, true);
 
-  move(Dis{ 6.7 * 1.3 }, 0, basePower / 2);
+  move(Dis{ 6.7 * 1.35 }, 0, basePower / 2);
 
-  turn(41, 0);
+  turn(42, 0);
 
   move(Dis{ 30 }, 0, -basePower / 2);
 
@@ -541,23 +604,23 @@ void phase1() {
 
   move(Dis{ 12 }, 0, basePower / 2);
 
-  lineDetector(-41, basePower, 8);
+  lineDetector(-42, basePower, 8);
 
   phase++;
 }
 
 void phase2() {
-  move(Dis{ 17 }, -41 - getAngle());
+  move(Dis{ 17 }, -42 - getAngle());
 
-  turn(-45);
+  turn(-45 - getAngle());
 
   delay(100);
 
-  move(Dis{ 20 });
+  move(Dis{ 20 }, -45 - getAngle());
 
-  lineDetector(-135, basePower, 5);
+  lineDetector(-132, basePower, 5.5);
 
-  getBrick(-135);
+  getBrick(-133);
 
   move(Dis{ 5 });
 
@@ -569,29 +632,26 @@ void phase2() {
 
   lineDetector(53, basePower, 8);
 
-  delay(10000);
+  delay(100);
 
   shortcut(-1, 3);
 
-  while (getLaserDisSide() > 40) drivetrain.MoveGyro(-basePower, 0);
+  while (getLaserDisSide() > 50) move(-basePower / 2, -basePower / 2);
 
   drivetrain.brake(true);
 
+  pos.resetIMUValues();
+
   toggleFrame();
-
-  // Lấy gạch xanh dương
-
-  move(Dis{ 13 }, 0, -basePower);
 
   phase++;
 }
 
 void phase3() {
   // Lấy bao xi mang xanh lá
+  turn(-20);
 
-  turn(-30);
-
-  lineDetector(-60, basePower, 9);
+  lineDetector(-71, basePower, 9);
 
   while (getLaserDisSide() > 16)
     move();
@@ -599,82 +659,77 @@ void phase3() {
   while (getLaserDisSide() < 16)
     move();
 
-  move(Dis{ 35 });
+  move(Dis{ 21 });
 
-  turn(-90);
-
-  delay(100);
-
-  lineDetector();
-  lineDetector(-90);
-
-  toggleFrame();
+  turn(-60);
 
   delay(100);
 
-  getBrick(30);
+  move(Dis{ 40 });
 
-  move(Dis{ 50 });
-
-  // turn(30);
-
-  // double angle = getAngle();
-
-  turnToLine(160);
+  lineDetector(-120);
 
   delay(100);
 
-  move(Dis{ 20 }, 0, -basePower, false);
+  getBrick(-120);
 
-  move(Ms{ 1000 }, 0, -basePower * 0.5);
+  move(Dis{ 30 });
+
+  turn(90);
+  turn(90);
+
+  while (getLaserDisSide() > 50) move(Gyro{ 0 }, -basePower);
+  while (getLaserDisSide() < 50) move(-basePower / 2, -basePower / 2);
+
+  drivetrain.brake(true);
 
   toggleFrame();
 
   // Lấy gạch xanh dương
 
-  move(Dis{ 20 });
+  // move(Dis{ 20 });
 
-  turn(45);
+  // turn(45);
 
-  move(Dis{ 18 });
-  lineDetector(135);
+  // move(Dis{ 18 });
+  // lineDetector(-45);
 
-  getBrick(30);
+  // getBrick(-45);
 
   // Lấy bay
-  move(Dis{ 10 });
+  // move(Dis{ 10 });
 
-  turn(45);
+  // turn(45);
 
-  delay(100);
+  // delay(100);
 
-  lineDetector(-45, basePower, 12);
+  // lineDetector(-45, basePower, 12);
 
-  move(Dis{ 15 });
+  // move(Dis{ 15 });
 
-  toggleClaw();
-  toggleArm(130);
-  toggleClaw();
+  // toggleClaw();
+  // toggleArm(130);
+  // toggleClaw();
 
-  turn(30);
+  // turn(30);
 
-  move(Dis{ 15 });
-  lineDetector(-30);
+  // move(Dis{ 15 });
+  // lineDetector(-30);
 
-  move(Dis{ 45 });
+  // move(Dis{ 45 });
 
-  drivetrain.brake(false);
+  // drivetrain.brake(false);
 
-  toggleClaw();
-  toggleArm();
+  // toggleClaw();
+  // toggleArm();
 
-  turn(45);
+  // turn(45);
 
-  move(Dis{ 30 }, 0, -basePower);
-  lineDetector(-45, -basePower, 8);
+  // move(Dis{ 30 }, 0, -basePower);
+  // lineDetector(-45, -basePower, 8);
 
-  move(Dis{ 10 }, 0, -basePower);
-  move(Ms{ 1000 }, 0, -basePower * 0.5);
+  // move(Dis{ 10 }, 0, -basePower);
+  // move(Ms{ 1000 }, 0, -basePower * 0.5);
 
   phase++;
 }
@@ -701,7 +756,9 @@ void setup() {
 
   drivetrain.setMoveGyroPID(5, 0, 6);
   drivetrain.setMoveSyncPID(0.02, 0, 0.04);
-  drivetrain.setTurnGyroPID(35, 0.02, 7);
+  // 2x 3500: 35, 0.015, 15
+  // 2800: 35, 0.02, 7
+  drivetrain.setTurnGyroPID(35, 0.02, 8);
 }
 
 void loop() {
@@ -756,7 +813,9 @@ void loop() {
 
     // Giai đoạn
     if (phase == 0) phaseAm1();
-    // if (phase == 1) phase1();
-    // if (phase == 2) phase2();
+    if (phase == 1) phase0();
+    if (phase == 2) phase1();
+    if (phase == 3) phase2();
+    if (phase == 4) phase3();
   }
 }
