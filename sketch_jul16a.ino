@@ -448,7 +448,7 @@ void phaseAm1() {
 
   move(Dis{ 36 }, 55 - getAngle());
 
-  lineDetector(38, basePower, 7);
+  lineDetector(39, basePower, 7);
 
   while (getLaserDisSide() > 35) move();
   while (getLaserDisSide() < 35) move(basePower, basePower);
@@ -477,7 +477,7 @@ void phaseAm1() {
 
   pos.resetIMUValues();
 
-  moveArc(-24, 90, basePower / 2);
+  moveArc(-20, 90, basePower / 2);
 
   drivetrain.brake(false);
 
@@ -684,6 +684,8 @@ void phase3() {
   drivetrain.brake(true);
 
   toggleFrame();
+
+  move(Dis{3}, 0, -basePower);
 
   // Lấy gạch xanh dương
 
